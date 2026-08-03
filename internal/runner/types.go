@@ -49,6 +49,7 @@ type Finding struct {
 	Category       string `json:"category"`
 	SuggestionCode string `json:"suggestion_code,omitempty"`
 	ExistingCode   string `json:"existing_code,omitempty"`
+	Thinking       string `json:"thinking,omitempty"`
 }
 
 // AsComment converts a runner Finding to the shared OCR review comment model.
@@ -62,6 +63,7 @@ func (f Finding) AsComment() model.LlmComment {
 		EndLine:        f.EndLine,
 		Category:       f.Category,
 		Severity:       f.Severity,
+		Thinking:       f.Thinking,
 	}
 }
 
@@ -76,5 +78,6 @@ func FindingFromComment(c model.LlmComment) Finding {
 		EndLine:        c.EndLine,
 		Category:       c.Category,
 		Severity:       c.Severity,
+		Thinking:       c.Thinking,
 	}
 }

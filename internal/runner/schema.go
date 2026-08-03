@@ -35,7 +35,8 @@ var resultSchema = []byte(`{
           "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
           "category": { "type": "string", "enum": ["bug", "security", "performance", "maintainability", "test", "style", "documentation", "other"] },
           "suggestion_code": { "type": "string" },
-          "existing_code": { "type": "string" }
+          "existing_code": { "type": "string" },
+          "thinking": { "type": "string" }
         }
       }
     },

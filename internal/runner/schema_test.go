@@ -36,7 +36,8 @@ func TestParseResultAcceptsOptionalFindingFields(t *testing.T) {
 			"severity":"medium",
 			"category":"maintainability",
 			"suggestion_code":"new code",
-			"existing_code":"old code"
+			"existing_code":"old code",
+			"thinking":"normalized reasoning"
 		}],
 		"summary":"reviewed one file"
 	}`
@@ -45,7 +46,7 @@ func TestParseResultAcceptsOptionalFindingFields(t *testing.T) {
 		t.Fatalf("ParseResult: %v", err)
 	}
 	finding := got.Findings[0]
-	if finding.SuggestionCode != "new code" || finding.ExistingCode != "old code" || got.Summary != "reviewed one file" {
+	if finding.SuggestionCode != "new code" || finding.ExistingCode != "old code" || finding.Thinking != "normalized reasoning" || got.Summary != "reviewed one file" {
 		t.Fatalf("optional fields not preserved: %+v", got)
 	}
 }
@@ -106,7 +107,7 @@ func TestSchemaIsClosedAndEnumerated(t *testing.T) {
 		t.Fatalf("Schema is invalid JSON: %v", err)
 	}
 	encoded := string(Schema())
-	for _, want := range []string{`"additionalProperties":false`, model.SeverityCritical, model.SeverityHigh, model.SeverityMedium, model.SeverityLow, model.CategoryDocumentation, model.CategoryOther} {
+	for _, want := range []string{`"additionalProperties":false`, model.SeverityCritical, model.SeverityHigh, model.SeverityMedium, model.SeverityLow, model.CategoryDocumentation, model.CategoryOther, "thinking"} {
 		if !strings.Contains(encoded, want) {
 			t.Fatalf("schema missing %q: %s", want, encoded)
 		}
