@@ -44,3 +44,6 @@ bin/opencodereview
 # Python
 __pycache__/
 *.py[cod]
+
+# Local Codex state
+.codex/
