@@ -1,0 +1,244 @@
+package agent
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/alibaba/open-code-review/internal/diff"
+	"github.com/alibaba/open-code-review/internal/model"
+	localrunner "github.com/alibaba/open-code-review/internal/runner"
+	"github.com/alibaba/open-code-review/internal/session"
+	"github.com/alibaba/open-code-review/internal/stdout"
+	"github.com/alibaba/open-code-review/internal/telemetry"
+)
+
+// RunExternal executes the diff review through one deterministic local runner invocation.
+func (a *Agent) RunExternal(ctx context.Context, r *localrunner.Runner, background string) ([]model.LlmComment, error) {
+	if r == nil {
+		return nil, errors.New("run external runner: nil runner")
+	}
+	ctx, diffSpan := telemetry.StartSpan(ctx, "diff.parse")
+	if err := a.loadDiffs(ctx); err != nil {
+		diffSpan.End()
+		if b := a.session.Manifest(); b != nil {
+			_ = b.SetRunFailure(session.RunFailureInput, "failed to resolve review input")
+		}
+		manifestErr := a.finalizeManifest()
+		loadErr := fmt.Errorf("load diffs: %w", err)
+		if ferr := a.session.Finalize(); ferr != nil {
+			manifestErr = errors.Join(manifestErr, fmt.Errorf("finalize session: %w", ferr))
+		}
+		if manifestErr != nil {
+			return nil, errors.Join(loadErr, manifestErr)
+		}
+		return nil, loadErr
+	}
+	telemetry.SetAttr(diffSpan, "files.changed", len(a.diffs))
+	telemetry.SetAttr(diffSpan, "lines.inserted", int64(a.totalInsertions))
+	telemetry.SetAttr(diffSpan, "lines.deleted", int64(a.totalDeletions))
+	diffSpan.End()
+
+	a.injectDiffMap()
+	a.args.Tools.Freeze()
+
+	totalChanged := len(a.diffs)
+	reviewCount := a.countReviewable(a.diffs)
+	fmt.Fprintf(stdout.Writer(), "[ocr] %d file(s) changed, reviewing %d in %s\n", totalChanged, reviewCount, a.args.RepoDir)
+
+	a.diffs = a.filterDiffs(a.diffs)
+	if len(a.diffs) == 0 {
+		fmt.Fprintln(stdout.Writer(), "[ocr] No supported files changed. Skipping review.")
+		telemetry.Event(ctx, "no.files.changed")
+		manifestErr := a.finalizeManifest()
+		if ferr := a.session.Finalize(); ferr != nil {
+			manifestErr = errors.Join(manifestErr, fmt.Errorf("finalize session: %w", ferr))
+		}
+		if manifestErr != nil {
+			return []model.LlmComment{}, manifestErr
+		}
+		return []model.LlmComment{}, nil
+	}
+
+	a.currentDate = time.Now().Format("2006-01-02 15:04")
+	telemetry.Event(ctx, "review.started",
+		telemetry.AnyToAttr("file.count", totalChanged),
+		telemetry.AnyToAttr("review.count", reviewCount),
+		telemetry.AnyToAttr("repo.dir", a.args.RepoDir))
+	telemetry.RecordFilesReviewed(ctx, int64(reviewCount))
+
+	if err := a.registerCoverage(a.diffs); err != nil {
+		a.recordWarning("manifest_error", "", err.Error())
+		if b := a.session.Manifest(); b != nil {
+			_ = b.SetRunFailure(session.RunFailureInternal, "coverage registration failed")
+		}
+	}
+
+	toRun := a.applyResume(a.diffs)
+	remaining := make([]model.Diff, 0, len(toRun))
+	for _, d := range toRun {
+		if !d.IsDeleted {
+			remaining = append(remaining, d)
+		}
+	}
+	if len(remaining) == 0 {
+		comments := a.args.CommentCollector.Comments()
+		return comments, a.finalizeExternalSession()
+	}
+
+	req := localrunner.Request{
+		Operation:  localrunner.Review,
+		Repository: a.args.RepoDir,
+		Background: background,
+		Files:      make([]localrunner.File, 0, len(remaining)),
+	}
+	if req.Background == "" {
+		req.Background = a.args.Background
+	}
+	for _, d := range remaining {
+		path := effectivePath(d)
+		req.Files = append(req.Files, localrunner.File{Path: path, Rule: a.resolveSystemRule(strings.ToLower(path))})
+	}
+
+	result, err := r.Run(ctx, req)
+	if err != nil {
+		class, itemClass, reason := classifyExternalRunError(err)
+		if b := a.session.Manifest(); b != nil {
+			if e := b.SetRunFailure(class, reason); e != nil {
+				a.recordWarning("manifest_error", "", e.Error())
+			}
+		}
+		for _, d := range remaining {
+			a.markFailed(d, itemClass, reason)
+			a.session.RecordReviewItemFailed(effectivePath(d), d.OldPath, d.NewPath, reviewItemFingerprint(a.reviewMode(), d), err.Error())
+		}
+		finalErr := a.finalizeExternalSession()
+		return nil, errors.Join(fmt.Errorf("run external runner: %w", err), finalErr)
+	}
+
+	comments, err := a.validateExternalResult(result, remaining)
+	if err != nil {
+		if b := a.session.Manifest(); b != nil {
+			if e := b.SetRunFailure(session.RunFailureUnknown, "external runner returned invalid review result"); e != nil {
+				a.recordWarning("manifest_error", "", e.Error())
+			}
+		}
+		for _, d := range remaining {
+			a.markFailed(d, session.FailureUnknown, "external runner returned invalid review result")
+			a.session.RecordReviewItemFailed(effectivePath(d), d.OldPath, d.NewPath, reviewItemFingerprint(a.reviewMode(), d), err.Error())
+		}
+		finalErr := a.finalizeExternalSession()
+		return nil, errors.Join(err, finalErr)
+	}
+
+	commentsByPath := make(map[string][]model.LlmComment)
+	for _, cm := range comments {
+		commentsByPath[cm.Path] = append(commentsByPath[cm.Path], cm)
+		a.args.CommentCollector.Add(cm)
+	}
+	reviewed := make(map[string]struct{}, len(result.ReviewedFiles))
+	for _, path := range result.ReviewedFiles {
+		reviewed[path] = struct{}{}
+	}
+	for _, d := range remaining {
+		path := effectivePath(d)
+		fingerprint := reviewItemFingerprint(a.reviewMode(), d)
+		if _, ok := reviewed[path]; ok {
+			a.markCompleted(d)
+			a.session.RecordReviewItemDone(path, d.OldPath, d.NewPath, fingerprint, commentsByPath[path])
+			continue
+		}
+		reason := "runner did not report file as reviewed"
+		a.markFailed(d, session.FailureUnknown, reason)
+		a.session.RecordReviewItemFailed(path, d.OldPath, d.NewPath, fingerprint, reason)
+	}
+
+	out := a.args.CommentCollector.Comments()
+	if len(out) > 0 {
+		telemetry.RecordCommentsGenerated(ctx, int64(len(out)))
+	}
+	return out, a.finalizeExternalSession()
+}
+
+func (a *Agent) finalizeExternalSession() error {
+	manifestErr := a.finalizeManifest()
+	if ferr := a.session.Finalize(); ferr != nil {
+		manifestErr = errors.Join(manifestErr, fmt.Errorf("finalize session: %w", ferr))
+	}
+	return manifestErr
+}
+
+func classifyExternalRunError(err error) (session.RunFailureClass, session.FailureClass, string) {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, localrunner.ErrRunnerTimeout):
+		return session.RunFailureTimeout, session.FailureTimeout, "external runner timed out"
+	case errors.Is(err, context.Canceled):
+		return session.RunFailureCancelled, session.FailureCancelled, "external runner was cancelled"
+	case errors.Is(err, localrunner.ErrExecutableNotFound), errors.Is(err, localrunner.ErrUnauthenticated):
+		return session.RunFailureConfiguration, session.FailureConfiguration, "external runner is not configured"
+	default:
+		return session.RunFailureUnknown, session.FailureUnknown, "external runner failed"
+	}
+}
+
+func (a *Agent) validateExternalResult(result localrunner.Result, selected []model.Diff) ([]model.LlmComment, error) {
+	selectedByPath := make(map[string]model.Diff, len(selected))
+	for _, d := range selected {
+		selectedByPath[effectivePath(d)] = d
+	}
+	reviewed := make(map[string]struct{}, len(result.ReviewedFiles))
+	for _, path := range result.ReviewedFiles {
+		if path == "" {
+			return nil, errors.New("external runner result has empty reviewed file")
+		}
+		if _, dup := reviewed[path]; dup {
+			return nil, fmt.Errorf("external runner result has duplicate reviewed file %q", path)
+		}
+		if _, ok := selectedByPath[path]; !ok {
+			return nil, fmt.Errorf("external runner reviewed file %q outside selected diff", path)
+		}
+		reviewed[path] = struct{}{}
+	}
+
+	comments := make([]model.LlmComment, 0, len(result.Findings))
+	for i, finding := range result.Findings {
+		if _, ok := selectedByPath[finding.Path]; !ok {
+			return nil, fmt.Errorf("external runner finding %d path %q outside selected diff", i, finding.Path)
+		}
+		if _, ok := reviewed[finding.Path]; !ok {
+			return nil, fmt.Errorf("external runner finding %d path %q was not reported reviewed", i, finding.Path)
+		}
+		cm := finding.AsComment()
+		resolved := diff.ResolveLineNumbers([]model.LlmComment{cm}, selected)
+		cm = resolved[0]
+		if err := validateExternalCommentLine(cm, selectedByPath[finding.Path]); err != nil {
+			return nil, fmt.Errorf("external runner finding %d: %w", i, err)
+		}
+		comments = append(comments, cm)
+	}
+	return comments, nil
+}
+
+func validateExternalCommentLine(cm model.LlmComment, d model.Diff) error {
+	if cm.StartLine < 1 {
+		return errors.New("start_line must be >= 1")
+	}
+	if cm.EndLine < cm.StartLine {
+		return errors.New("end_line must be >= start_line")
+	}
+	if d.NewFileContent != "" {
+		lineCount := strings.Count(d.NewFileContent, "\n")
+		if !strings.HasSuffix(d.NewFileContent, "\n") {
+			lineCount++
+		}
+		if lineCount == 0 {
+			lineCount = 1
+		}
+		if cm.EndLine > lineCount {
+			return fmt.Errorf("line range %d-%d exceeds %s line count %d", cm.StartLine, cm.EndLine, effectivePath(d), lineCount)
+		}
+	}
+	return nil
+}
