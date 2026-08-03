@@ -7,6 +7,25 @@ import (
 	"time"
 )
 
+func TestCodexStatusRequiresSavedChatGPTLogin(t *testing.T) {
+	if _, err := parseCodexStatus([]byte("Logged in using ChatGPT\n")); err != nil {
+		t.Fatalf("expected saved ChatGPT login acceptance: %v", err)
+	}
+	cases := map[string][]byte{
+		"logged out with ChatGPT help": []byte("Not logged in. Run codex login to log in with ChatGPT.\n"),
+		"login instruction":            []byte("Log in with ChatGPT to continue.\n"),
+		"api key":                      []byte("Logged in using API key\n"),
+		"empty":                        []byte("  "),
+	}
+	for name, raw := range cases {
+		t.Run(name, func(t *testing.T) {
+			if _, err := parseCodexStatus(raw); err == nil {
+				t.Fatal("expected codex status rejection")
+			}
+		})
+	}
+}
+
 func TestClaudeStatusRequiresClaudeAISubscription(t *testing.T) {
 	_, err := parseClaudeStatus([]byte(`{"loggedIn":true,"authMethod":"api_key"}`))
 	if err == nil {
@@ -82,5 +101,24 @@ func TestParseClaudeResultExtractsFinalResultEnvelope(t *testing.T) {
 func TestParseClaudeResultRejectsMalformedInnerResult(t *testing.T) {
 	if _, err := parseClaudeResult([]byte(`{"type":"result","subtype":"success","is_error":false,"result":"{\"reviewed_files\":[\"src/a.go\"],\"findings\":[],\"extra\":true}"}`)); err == nil {
 		t.Fatal("expected malformed inner result rejection")
+	}
+}
+
+func TestParseClaudeResultRequiresFinalSuccessEnvelope(t *testing.T) {
+	validResult := `"{\"reviewed_files\":[\"src/a.go\"],\"findings\":[]}"`
+	cases := map[string]string{
+		"missing type":       `{"subtype":"success","is_error":false,"result":` + validResult + `}`,
+		"wrong type":         `{"type":"assistant","subtype":"success","is_error":false,"result":` + validResult + `}`,
+		"missing subtype":    `{"type":"result","is_error":false,"result":` + validResult + `}`,
+		"unexpected subtype": `{"type":"result","subtype":"partial","is_error":false,"result":` + validResult + `}`,
+		"error flag":         `{"type":"result","subtype":"success","is_error":true,"result":` + validResult + `}`,
+		"error subtype":      `{"type":"result","subtype":"error","is_error":false,"result":` + validResult + `}`,
+	}
+	for name, raw := range cases {
+		t.Run(name, func(t *testing.T) {
+			if _, err := parseClaudeResult([]byte(raw)); err == nil {
+				t.Fatal("expected claude envelope rejection")
+			}
+		})
 	}
 }
