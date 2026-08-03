@@ -198,11 +198,10 @@ func parseCodexStatus(data []byte) (Identity, error) {
 	if text == "" {
 		return Identity{}, fmt.Errorf("%w: codex login status was empty", ErrUnauthenticated)
 	}
-	lower := strings.ToLower(text)
-	if !strings.Contains(lower, "chatgpt") || strings.Contains(lower, "api key") || strings.Contains(lower, "api_key") {
-		return Identity{}, fmt.Errorf("%w: codex must be logged in with ChatGPT", ErrUnauthenticated)
+	if strings.EqualFold(text, "Logged in using ChatGPT") {
+		return Identity{Kind: Codex, AuthMethod: "chatgpt"}, nil
 	}
-	return Identity{Kind: Codex, AuthMethod: "chatgpt"}, nil
+	return Identity{}, fmt.Errorf("%w: codex must be logged in with ChatGPT", ErrUnauthenticated)
 }
 
 func parseClaudeStatus(data []byte) (Identity, error) {
@@ -234,7 +233,13 @@ func parseClaudeResult(data []byte) (Result, error) {
 	if err := json.Unmarshal(data, &envelope); err != nil {
 		return Result{}, fmt.Errorf("claude result: decode envelope: %w", err)
 	}
-	if envelope.IsError || envelope.Subtype == "error" {
+	if envelope.Type != "result" {
+		return Result{}, fmt.Errorf("claude result: unexpected type %q", envelope.Type)
+	}
+	if envelope.Subtype != "success" {
+		return Result{}, fmt.Errorf("claude result: unexpected subtype %q", envelope.Subtype)
+	}
+	if envelope.IsError {
 		return Result{}, errors.New("claude result: runner reported error")
 	}
 	if len(envelope.Result) == 0 {
