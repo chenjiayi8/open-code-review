@@ -29,7 +29,12 @@ type commandFunc func(context.Context, string, []string, []byte, []string) ([]by
 type lookPathFunc func(string) (string, error)
 type environFunc func() []string
 
+type Executor interface {
+	Run(context.Context, Request) (Result, error)
+}
+
 type Runner struct {
+	executor       Executor
 	kind           Kind
 	model          string
 	timeout        time.Duration
@@ -37,6 +42,10 @@ type Runner struct {
 	runCommand     commandFunc
 	environ        environFunc
 	lastExecutable string
+}
+
+func NewWithExecutor(executor Executor) *Runner {
+	return &Runner{executor: executor}
 }
 
 func New(kind Kind, model string, timeout time.Duration) (*Runner, error) {
@@ -101,6 +110,12 @@ func (r *Runner) Preflight(ctx context.Context) (Identity, error) {
 }
 
 func (r *Runner) Run(ctx context.Context, request Request) (Result, error) {
+	if r == nil {
+		return Result{}, errors.New("runner: nil runner")
+	}
+	if r.executor != nil {
+		return r.executor.Run(ctx, request)
+	}
 	identity, err := r.Preflight(ctx)
 	if err != nil {
 		return Result{}, err
