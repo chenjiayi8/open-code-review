@@ -221,7 +221,6 @@ func parseCodexStatus(data []byte) (Identity, error) {
 
 func parseClaudeStatus(data []byte) (Identity, error) {
 	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
 	var status struct {
 		LoggedIn   bool   `json:"loggedIn"`
 		AuthMethod string `json:"authMethod"`
