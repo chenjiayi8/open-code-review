@@ -33,6 +33,16 @@ func TestClaudeStatusRequiresClaudeAISubscription(t *testing.T) {
 	}
 }
 
+func TestClaudeStatusAcceptsObservedAPIProviderField(t *testing.T) {
+	identity, err := parseClaudeStatus([]byte(`{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"anthropic"}`))
+	if err != nil {
+		t.Fatalf("parseClaudeStatus: %v", err)
+	}
+	if identity.Kind != Claude || identity.AuthMethod != "claude.ai" {
+		t.Fatalf("identity = %+v, want claude.ai subscription", identity)
+	}
+}
+
 func TestPreflightRejectsAbsentExecutableFromInjectedLookup(t *testing.T) {
 	r := &Runner{
 		kind: Claude,
@@ -71,10 +81,9 @@ func TestPreflightClassifiesTimeoutFromInjectedCommand(t *testing.T) {
 	}
 }
 
-func TestClaudeStatusRejectsMalformedExtraAndUnauthenticatedJSON(t *testing.T) {
+func TestClaudeStatusRejectsMalformedAndUnauthenticatedJSON(t *testing.T) {
 	cases := map[string][]byte{
 		"malformed":       []byte(`{"loggedIn":true`),
-		"extra field":     []byte(`{"loggedIn":true,"authMethod":"claude.ai","extra":true}`),
 		"multiple values": []byte(`{"loggedIn":true,"authMethod":"claude.ai"} {}`),
 		"logged out":      []byte(`{"loggedIn":false,"authMethod":"claude.ai"}`),
 	}

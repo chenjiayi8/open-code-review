@@ -10,10 +10,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/alibaba/open-code-review/internal/model"
 	"github.com/alibaba/open-code-review/internal/session"
 )
 
-const runnerE2ESecret = "sk_live_ocr_runner_e2e_do_not_leak"
+const (
+	runnerE2ESecret         = "sk_live_ocr_runner_e2e_do_not_leak"
+	runnerE2ETimeoutMinutes = "4"
+)
 
 func TestRunnerE2E(t *testing.T) {
 	if os.Getenv("OCR_RUNNER_E2E") != "1" {
@@ -58,16 +62,16 @@ func runRealReview(t *testing.T, ocr, kind string) {
 	t.Helper()
 	fixture := newRunnerE2EFixture(t)
 	defer fixture.assertSourceUnchanged(t)
-	out := runOCRJSON(t, ocr, "review", "--repo", fixture.repo, "--runner", kind, "--format", "json", "--audience", "agent")
-	assertRunnerE2EOutput(t, out, kind, fixture.sourcePath)
+	out := runOCRJSON(t, ocr, "review", "--repo", fixture.repo, "--runner", kind, "--format", "json", "--audience", "agent", "--timeout", runnerE2ETimeoutMinutes)
+	assertRunnerE2EReviewOutput(t, out, kind, fixture.sourcePath)
 }
 
 func runRealScan(t *testing.T, ocr, kind string) {
 	t.Helper()
 	fixture := newRunnerE2EFixture(t)
 	defer fixture.assertSourceUnchanged(t)
-	out := runOCRJSON(t, ocr, "scan", "--repo", fixture.repo, "--path", fixture.sourcePath, "--runner", kind, "--format", "json", "--audience", "agent", "--no-plan", "--no-dedup", "--no-summary")
-	assertRunnerE2EOutput(t, out, kind, fixture.sourcePath)
+	out := runOCRJSON(t, ocr, "scan", "--repo", fixture.repo, "--path", fixture.sourcePath, "--runner", kind, "--format", "json", "--audience", "agent", "--timeout", runnerE2ETimeoutMinutes, "--no-plan", "--no-dedup", "--no-summary")
+	assertRunnerE2EScanOutput(t, out, kind, fixture)
 }
 
 type runnerE2EFixture struct {
@@ -137,7 +141,27 @@ func runOCRJSON(t *testing.T, ocr string, args ...string) jsonOutput {
 	return out
 }
 
-func assertRunnerE2EOutput(t *testing.T, out jsonOutput, kind, wantPath string) {
+func assertRunnerE2EReviewOutput(t *testing.T, out jsonOutput, kind, wantPath string) {
+	t.Helper()
+	assertRunnerE2ECommonOutput(t, out, kind, wantPath)
+	if out.Manifest == nil {
+		t.Fatal("review manifest is nil; want coverage/session metadata")
+	}
+	if !manifestMentionsPath(out, wantPath) {
+		t.Fatalf("review manifest coverage does not mention %q: %+v", wantPath, out.Manifest.Coverage)
+	}
+}
+
+func assertRunnerE2EScanOutput(t *testing.T, out jsonOutput, kind string, fixture runnerE2EFixture) {
+	t.Helper()
+	assertRunnerE2ECommonOutput(t, out, kind, fixture.sourcePath)
+	if out.Manifest != nil {
+		t.Fatalf("scan manifest = %+v, want nil because scan session metadata is persisted legacy-style", out.Manifest)
+	}
+	assertRunnerE2EPersistedScanSession(t, out, fixture)
+}
+
+func assertRunnerE2ECommonOutput(t *testing.T, out jsonOutput, kind, wantPath string) {
 	t.Helper()
 	if out.LLM == nil || out.LLM.Provider != "local-runner" || out.LLM.Runner != kind {
 		t.Fatalf("llm identity = %+v, want local-runner/%s", out.LLM, kind)
@@ -151,16 +175,15 @@ func assertRunnerE2EOutput(t *testing.T, out jsonOutput, kind, wantPath string) 
 	if out.ToolCalls == nil || out.ToolCalls.ByTool == nil {
 		t.Fatalf("tool_calls = %+v, want initialized tool-call metadata", out.ToolCalls)
 	}
-	if out.Manifest == nil {
-		t.Fatal("manifest is nil; want coverage/session metadata")
-	}
 	if out.SessionID == "" {
 		t.Fatal("session_id is empty")
 	}
-	if !manifestMentionsPath(out, wantPath) {
-		t.Fatalf("manifest coverage does not mention %q: %+v", wantPath, out.Manifest.Coverage)
-	}
-	for i, comment := range out.Comments {
+	assertRunnerE2EComments(t, out.Comments, wantPath)
+}
+
+func assertRunnerE2EComments(t *testing.T, comments []model.LlmComment, wantPath string) {
+	t.Helper()
+	for i, comment := range comments {
 		if comment.Path != wantPath {
 			t.Fatalf("comments[%d].Path = %q, want %q", i, comment.Path, wantPath)
 		}
@@ -176,6 +199,33 @@ func assertRunnerE2EOutput(t *testing.T, out jsonOutput, kind, wantPath string) 
 		if !containsString([]string{"bug", "security", "performance", "maintainability", "test", "style", "documentation", "other"}, comment.Category) {
 			t.Fatalf("comments[%d].Category = %q", i, comment.Category)
 		}
+	}
+}
+
+func assertRunnerE2EPersistedScanSession(t *testing.T, out jsonOutput, fixture runnerE2EFixture) {
+	t.Helper()
+	summary, details, err := session.LoadDetail(fixture.repo, out.SessionID)
+	if err != nil {
+		t.Fatalf("load scan session detail: %v", err)
+	}
+	if summary.ReviewMode != session.ReviewModeFullScan {
+		t.Fatalf("scan session review mode = %q, want %q", summary.ReviewMode, session.ReviewModeFullScan)
+	}
+	if summary.SelectedFiles < 1 || summary.CompletedFiles < 1 {
+		t.Fatalf("scan summary selected/completed = %d/%d, want persisted main.go coverage", summary.SelectedFiles, summary.CompletedFiles)
+	}
+	if !itemDetailsMentionPath(details, fixture.sourcePath) {
+		t.Fatalf("scan session details do not mention %q: %+v", fixture.sourcePath, details)
+	}
+	resume, err := session.LoadResumeState(fixture.repo, out.SessionID)
+	if err != nil {
+		t.Fatalf("load scan resume state: %v", err)
+	}
+	if resume.ReviewMode != session.ReviewModeFullScan {
+		t.Fatalf("scan resume review mode = %q, want %q", resume.ReviewMode, session.ReviewModeFullScan)
+	}
+	if resume.CompletedCount() < 1 || !resumeStateMentionsPath(resume, fixture.sourcePath) {
+		t.Fatalf("scan resume state does not contain %q: %+v", fixture.sourcePath, resume.Items)
 	}
 }
 
@@ -204,6 +254,24 @@ func coveragePaths(items []session.CoverageItem) []string {
 		paths = append(paths, item.Path)
 	}
 	return paths
+}
+
+func itemDetailsMentionPath(details []session.ItemDetail, wantPath string) bool {
+	for _, detail := range details {
+		if detail.FilePath == wantPath && detail.Type == "done" {
+			return true
+		}
+	}
+	return false
+}
+
+func resumeStateMentionsPath(state *session.ResumeState, wantPath string) bool {
+	for _, item := range state.Items {
+		if item.FilePath == wantPath || item.NewPath == wantPath {
+			return true
+		}
+	}
+	return false
 }
 
 func containsString(values []string, want string) bool {
