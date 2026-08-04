@@ -97,6 +97,9 @@ func validateReviewOptions(opts *reviewOptions) error {
 	if opts.maxGitProcs < 0 {
 		return fmt.Errorf("--max-git-procs must be a non-negative integer (0 means use default 16)")
 	}
+	if opts.runnerTimeout <= 0 {
+		return fmt.Errorf("--timeout must be a positive integer number of minutes")
+	}
 	if !opts.preview {
 		if opts.runner == "" {
 			return fmt.Errorf("--runner is required for review (use --preview to inspect files without invoking a runner)")
@@ -118,6 +121,9 @@ func validateScanOptions(opts *scanOptions) error {
 	}
 	if opts.maxGitProcs < 0 {
 		return fmt.Errorf("--max-git-procs must be a non-negative integer (0 means use default 16)")
+	}
+	if opts.runnerTimeout <= 0 {
+		return fmt.Errorf("--timeout must be a positive integer number of minutes")
 	}
 	if opts.preview && opts.resume != "" {
 		return fmt.Errorf("--preview and --resume cannot be used together")

@@ -118,50 +118,9 @@ func runConfigUnset(key string) error {
 	return nil
 }
 
-type ProviderEntry struct {
-	APIKey       string            `json:"api_key,omitempty"`
-	URL          string            `json:"url,omitempty"`
-	Protocol     string            `json:"protocol,omitempty"`
-	Model        string            `json:"model,omitempty"`
-	Models       []string          `json:"models,omitempty"`
-	AuthHeader   string            `json:"auth_header,omitempty"`
-	TimeoutSec   int               `json:"timeout_sec,omitempty"`
-	ExtraBody    map[string]any    `json:"extra_body,omitempty"`
-	ExtraHeaders map[string]string `json:"extra_headers,omitempty"`
-}
-
-type MCPServerConfig struct {
-	Type    string            `json:"type,omitempty"`
-	Command string            `json:"command,omitempty"`
-	Args    []string          `json:"args,omitempty"`
-	Env     []string          `json:"env,omitempty"`
-	URL     string            `json:"url,omitempty"`
-	Headers map[string]string `json:"headers,omitempty"`
-	Tools   []string          `json:"tools,omitempty"`
-	Setup   string            `json:"setup,omitempty"`
-}
-
 type Config struct {
-	Provider        string                     `json:"provider,omitempty"`
-	Model           string                     `json:"model,omitempty"`
-	Providers       map[string]ProviderEntry   `json:"providers,omitempty"`
-	CustomProviders map[string]ProviderEntry   `json:"custom_providers,omitempty"`
-	Llm             LlmConfig                  `json:"llm,omitempty"`
-	Language        string                     `json:"language,omitempty"`
-	Telemetry       *TelemetryConfig           `json:"telemetry,omitempty"`
-	MCPServers      map[string]MCPServerConfig `json:"mcp_servers,omitempty"`
-}
-
-type LlmConfig struct {
-	URL          string            `json:"url,omitempty"`
-	AuthToken    string            `json:"auth_token,omitempty"`
-	AuthHeader   string            `json:"auth_header,omitempty"`
-	Model        string            `json:"model,omitempty"`
-	Protocol     string            `json:"protocol,omitempty"`
-	UseAnthropic *bool             `json:"use_anthropic,omitempty"`
-	TimeoutSec   int               `json:"timeout_sec,omitempty"`
-	ExtraBody    map[string]any    `json:"extra_body,omitempty"`
-	ExtraHeaders map[string]string `json:"extra_headers,omitempty"`
+	Language  string           `json:"language,omitempty"`
+	Telemetry *TelemetryConfig `json:"telemetry,omitempty"`
 }
 
 type TelemetryConfig struct {

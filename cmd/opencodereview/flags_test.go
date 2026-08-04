@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseReviewFlagsBackgroundFile(t *testing.T) {
 	for _, flag := range []string{"--background-file", "-B"} {
@@ -114,5 +117,20 @@ func TestParseReviewFlags_ShortFlags(t *testing.T) {
 	}
 	if !opts.preview {
 		t.Error("expected preview=true")
+	}
+}
+
+func TestParseReviewFlagsRejectsNegativeRunnerTimeout(t *testing.T) {
+	_, err := parseReviewFlags([]string{"--runner", "codex", "--timeout", "-1"})
+	if err == nil || !strings.Contains(err.Error(), "--timeout") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestReviewExamplesRequireRunnerForRealExecution(t *testing.T) {
+	for _, forbidden := range []string{"ocr review\n", "ocr review --from", "ocr review --commit", "ocr review --format", "ocr review --audience", "ocr review --exclude", "ocr review --background"} {
+		if strings.Contains(reviewCmd.Example, forbidden) {
+			t.Fatalf("review example contains runner-less real invocation %q:\n%s", forbidden, reviewCmd.Example)
+		}
 	}
 }
