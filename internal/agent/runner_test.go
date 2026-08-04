@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/alibaba/open-code-review/internal/config/template"
 	"github.com/alibaba/open-code-review/internal/model"
 	localrunner "github.com/alibaba/open-code-review/internal/runner"
 	"github.com/alibaba/open-code-review/internal/session"
@@ -313,5 +314,34 @@ func TestRunExternalRejectsDuplicateReviewedFiles(t *testing.T) {
 	_, err := a.RunExternal(context.Background(), localrunner.NewWithExecutor(exec), "")
 	if err == nil || !strings.Contains(err.Error(), "duplicate reviewed file") {
 		t.Fatalf("RunExternal error = %v, want duplicate reviewed file", err)
+	}
+}
+
+func TestRunExternalSkipsLargeDiffBeforeInvokingRunner(t *testing.T) {
+	repo := initExternalRunnerRepo(t, map[string]string{
+		"large.go": "package main\n\nfunc old() {}\n",
+	})
+	writeAgentFile(t, repo, "large.go", "package main\n"+strings.Repeat("// changed line with enough tokens to exceed the limit\n", 200))
+	exec := &scriptedRunnerExecutor{result: localrunner.Result{ReviewedFiles: []string{"large.go"}, Findings: []localrunner.Finding{}}}
+	t.Setenv("HOME", t.TempDir())
+	sess := session.New(repo, "feature", "local-runner", session.SessionOptions{
+		ReviewMode: session.ReviewModeWorkspace,
+		Operation:  session.OperationReview,
+	})
+	a := New(Args{RepoDir: repo, Model: "local-runner", Session: sess, Template: template.Template{MaxTokens: 100}})
+
+	comments, err := a.RunExternal(context.Background(), localrunner.NewWithExecutor(exec), "")
+	if err != nil {
+		t.Fatalf("RunExternal: %v", err)
+	}
+	if len(comments) != 0 {
+		t.Fatalf("comments = %+v, want none", comments)
+	}
+	if exec.calls != 0 {
+		t.Fatalf("executor calls = %d, want 0 for large diff excluded before runner", exec.calls)
+	}
+	manifest := a.RunManifest()
+	if manifest == nil || manifest.TerminalState != session.StateSkipped || len(manifest.Coverage.Selected) != 0 {
+		t.Fatalf("manifest = %+v, want skipped empty coverage", manifest)
 	}
 }

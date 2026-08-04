@@ -5,13 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/alibaba/open-code-review/internal/diff"
 	"github.com/alibaba/open-code-review/internal/model"
 	localrunner "github.com/alibaba/open-code-review/internal/runner"
 	"github.com/alibaba/open-code-review/internal/session"
-	"github.com/alibaba/open-code-review/internal/stdout"
 	"github.com/alibaba/open-code-review/internal/telemetry"
 )
 
@@ -20,54 +18,13 @@ func (a *Agent) RunExternal(ctx context.Context, r *localrunner.Runner, backgrou
 	if r == nil {
 		return nil, errors.New("run external runner: nil runner")
 	}
-	ctx, diffSpan := telemetry.StartSpan(ctx, "diff.parse")
-	if err := a.loadDiffs(ctx); err != nil {
-		diffSpan.End()
-		if b := a.session.Manifest(); b != nil {
-			_ = b.SetRunFailure(session.RunFailureInput, "failed to resolve review input")
-		}
-		manifestErr := a.finalizeManifest()
-		loadErr := fmt.Errorf("load diffs: %w", err)
-		if ferr := a.session.Finalize(); ferr != nil {
-			manifestErr = errors.Join(manifestErr, fmt.Errorf("finalize session: %w", ferr))
-		}
-		if manifestErr != nil {
-			return nil, errors.Join(loadErr, manifestErr)
-		}
-		return nil, loadErr
+	prep, err := a.prepareReview(ctx)
+	if err != nil {
+		return nil, a.finalizeReviewSessionWithError(err)
 	}
-	telemetry.SetAttr(diffSpan, "files.changed", len(a.diffs))
-	telemetry.SetAttr(diffSpan, "lines.inserted", int64(a.totalInsertions))
-	telemetry.SetAttr(diffSpan, "lines.deleted", int64(a.totalDeletions))
-	diffSpan.End()
-
-	a.injectDiffMap()
-	a.args.Tools.Freeze()
-
-	totalChanged := len(a.diffs)
-	reviewCount := a.countReviewable(a.diffs)
-	fmt.Fprintf(stdout.Writer(), "[ocr] %d file(s) changed, reviewing %d in %s\n", totalChanged, reviewCount, a.args.RepoDir)
-
-	a.diffs = a.filterDiffs(a.diffs)
-	if len(a.diffs) == 0 {
-		fmt.Fprintln(stdout.Writer(), "[ocr] No supported files changed. Skipping review.")
-		telemetry.Event(ctx, "no.files.changed")
-		manifestErr := a.finalizeManifest()
-		if ferr := a.session.Finalize(); ferr != nil {
-			manifestErr = errors.Join(manifestErr, fmt.Errorf("finalize session: %w", ferr))
-		}
-		if manifestErr != nil {
-			return []model.LlmComment{}, manifestErr
-		}
-		return []model.LlmComment{}, nil
+	if prep.skipped {
+		return []model.LlmComment{}, a.finalizeReviewSession()
 	}
-
-	a.currentDate = time.Now().Format("2006-01-02 15:04")
-	telemetry.Event(ctx, "review.started",
-		telemetry.AnyToAttr("file.count", totalChanged),
-		telemetry.AnyToAttr("review.count", reviewCount),
-		telemetry.AnyToAttr("repo.dir", a.args.RepoDir))
-	telemetry.RecordFilesReviewed(ctx, int64(reviewCount))
 
 	if err := a.registerCoverage(a.diffs); err != nil {
 		a.recordWarning("manifest_error", "", err.Error())
@@ -85,7 +42,7 @@ func (a *Agent) RunExternal(ctx context.Context, r *localrunner.Runner, backgrou
 	}
 	if len(remaining) == 0 {
 		comments := a.args.CommentCollector.Comments()
-		return comments, a.finalizeExternalSession()
+		return comments, a.finalizeReviewSession()
 	}
 
 	req := localrunner.Request{
@@ -114,7 +71,7 @@ func (a *Agent) RunExternal(ctx context.Context, r *localrunner.Runner, backgrou
 			a.markFailed(d, itemClass, reason)
 			a.session.RecordReviewItemFailed(effectivePath(d), d.OldPath, d.NewPath, reviewItemFingerprint(a.reviewMode(), d), err.Error())
 		}
-		finalErr := a.finalizeExternalSession()
+		finalErr := a.finalizeReviewSession()
 		return nil, errors.Join(fmt.Errorf("run external runner: %w", err), finalErr)
 	}
 
@@ -129,7 +86,7 @@ func (a *Agent) RunExternal(ctx context.Context, r *localrunner.Runner, backgrou
 			a.markFailed(d, session.FailureUnknown, "external runner returned invalid review result")
 			a.session.RecordReviewItemFailed(effectivePath(d), d.OldPath, d.NewPath, reviewItemFingerprint(a.reviewMode(), d), err.Error())
 		}
-		finalErr := a.finalizeExternalSession()
+		finalErr := a.finalizeReviewSession()
 		return nil, errors.Join(err, finalErr)
 	}
 
@@ -159,15 +116,7 @@ func (a *Agent) RunExternal(ctx context.Context, r *localrunner.Runner, backgrou
 	if len(out) > 0 {
 		telemetry.RecordCommentsGenerated(ctx, int64(len(out)))
 	}
-	return out, a.finalizeExternalSession()
-}
-
-func (a *Agent) finalizeExternalSession() error {
-	manifestErr := a.finalizeManifest()
-	if ferr := a.session.Finalize(); ferr != nil {
-		manifestErr = errors.Join(manifestErr, fmt.Errorf("finalize session: %w", ferr))
-	}
-	return manifestErr
+	return out, a.finalizeReviewSession()
 }
 
 func classifyExternalRunError(err error) (session.RunFailureClass, session.FailureClass, string) {
