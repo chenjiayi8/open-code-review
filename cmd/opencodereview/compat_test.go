@@ -49,6 +49,15 @@ func parseScanFlags(args []string) (scanOptions, error) {
 	return opts, err
 }
 
+// runScan provides test compatibility for the pre-cobra runScan(args) entry point.
+func runScan(args []string) error {
+	opts, err := parseScanFlags(args)
+	if err != nil {
+		return err
+	}
+	return executeScan(opts)
+}
+
 // runSessionListCompat provides test compatibility for old-style runSessionList([]string{...}) calls.
 func runSessionListCompat(args []string) error {
 	cmd := &cobra.Command{
@@ -140,17 +149,7 @@ func runConfig(args []string) error {
 		SilenceUsage: true, SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, a []string) error { return runConfigUnset(a[0]) },
 	}
-	providerCmd := &cobra.Command{
-		Use: "provider", Args: cobra.NoArgs,
-		SilenceUsage: true, SilenceErrors: true,
-		RunE: func(cmd *cobra.Command, a []string) error { return runConfigProvider() },
-	}
-	modelCmd := &cobra.Command{
-		Use: "model", Args: cobra.NoArgs,
-		SilenceUsage: true, SilenceErrors: true,
-		RunE: func(cmd *cobra.Command, a []string) error { return runConfigModel() },
-	}
-	cmd.AddCommand(setCmd, unsetCmd, providerCmd, modelCmd)
+	cmd.AddCommand(setCmd, unsetCmd)
 	// A nil args slice makes cobra fall back to os.Args; pass an explicit empty
 	// slice so `runConfig(nil)` shows usage instead of reading the test binary's args.
 	if args == nil {

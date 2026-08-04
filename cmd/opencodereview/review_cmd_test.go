@@ -131,11 +131,18 @@ func TestRunReviewFlagValidationWritesNoArtifacts(t *testing.T) {
 }
 
 func TestParseReviewFlagsAllowsFromAndTo(t *testing.T) {
-	opts, err := parseReviewFlags([]string{"--from", "main", "--to", "HEAD"})
+	opts, err := parseReviewFlags([]string{"--from", "main", "--to", "HEAD", "--runner", "codex"})
 	if err != nil {
 		t.Fatalf("expected --from/--to to pass, got: %v", err)
 	}
 	if opts.from != "main" || opts.to != "HEAD" {
 		t.Fatalf("unexpected opts: from=%q to=%q", opts.from, opts.to)
+	}
+}
+
+func TestParseReviewFlagsRequiresRunner(t *testing.T) {
+	_, err := parseReviewFlags([]string{})
+	if err == nil || !strings.Contains(err.Error(), "--runner") {
+		t.Fatalf("%v", err)
 	}
 }
