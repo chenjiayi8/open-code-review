@@ -8,39 +8,32 @@ import (
 	"time"
 
 	"github.com/alibaba/open-code-review/internal/config/template"
-	"github.com/alibaba/open-code-review/internal/llm"
-	"github.com/alibaba/open-code-review/internal/llmloop"
 	"github.com/alibaba/open-code-review/internal/scan"
 	"github.com/alibaba/open-code-review/internal/session"
 	"github.com/alibaba/open-code-review/internal/telemetry"
-	"github.com/alibaba/open-code-review/internal/tool"
 	"github.com/spf13/cobra"
 
 	"go.opentelemetry.io/otel/codes"
 )
 
 type scanOptions struct {
-	toolConfigPath  string
-	rulePath        string
-	repoDir         string
-	paths           string
-	excludes        string
-	outputFormat    string
-	audience        string
-	background      string
-	concurrency     int
-	perFileTimeout  int
-	maxTools        int
-	maxGitProcs     int
-	preview         bool
-	noPlan          bool
-	noDedup         bool
-	noSummary       bool
-	batch           string
-	maxTokensBudget int
-	provider        string
-	model           string
-	resume          string
+	rulePath      string
+	repoDir       string
+	paths         string
+	excludes      string
+	outputFormat  string
+	audience      string
+	background    string
+	maxGitProcs   int
+	preview       bool
+	noPlan        bool
+	noDedup       bool
+	noSummary     bool
+	batch         string
+	runner        string
+	runnerModel   string
+	runnerTimeout int
+	resume        string
 }
 
 var scanOpts scanOptions
@@ -60,8 +53,8 @@ var scanCmd = &cobra.Command{
   # Scan multiple files
   ocr scan --path internal/agent/agent.go,internal/diff/scan.go
 
-  # Select a configured provider and model for this run only
-  ocr scan --provider openai --model gpt-5.4 --format json
+  # Select a local subscription runner and optional model for this run
+  ocr scan --runner claude --runner-model sonnet --format json
 
   # Exclude generated files / fixtures
   ocr scan --exclude '**/generated/*,**/testdata/*'
@@ -102,15 +95,14 @@ func splitPaths(raw string) []string {
 }
 
 func executeScan(opts scanOptions) error {
-	cc, err := loadCommonContext(opts.repoDir, opts.rulePath, opts.maxTools, opts.maxGitProcs, false)
+	cc, err := loadCommonContext(opts.repoDir, opts.rulePath, 0, opts.maxGitProcs, false)
 	if err != nil {
 		return err
 	}
 	applyCLIExcludes(cc, splitPaths(opts.excludes))
 
 	// scan owns its own template (scan_template.json) independent from the
-	// diff-review template loaded by loadCommonContext above. Apply --max-tools
-	// as an "only raise" override to the scan template's per-file budget.
+	// diff-review template loaded by loadCommonContext above.
 	scanTpl, err := template.LoadScanDefault()
 	if err != nil {
 		return fmt.Errorf("load scan template: %w", err)
@@ -118,20 +110,11 @@ func executeScan(opts scanOptions) error {
 	if err := scanTpl.Validate(); err != nil {
 		return fmt.Errorf("invalid scan template: %w", err)
 	}
-	if opts.maxTools > scanTpl.MaxToolRequestTimes {
-		scanTpl.MaxToolRequestTimes = opts.maxTools
-	}
 	if opts.batch != "" {
 		// CLI override of BATCH_STRATEGY; validated downstream by parseBatchStrategy
 		// (unknown values silently fall back to "none").
 		scanTpl.BatchStrategy = opts.batch
 	}
-	// Token budget: --max-tokens-budget overrides the template value when set.
-	budget := scanTpl.MaxTokensBudget
-	if opts.maxTokensBudget > 0 {
-		budget = int64(opts.maxTokensBudget)
-	}
-
 	scanPaths := splitPaths(opts.paths)
 
 	if opts.preview {
@@ -143,58 +126,34 @@ func executeScan(opts scanOptions) error {
 		return err
 	}
 
-	rt, err := loadLLMRuntime(cc.Template, opts.toolConfigPath, llm.ResolveOptions{
-		Provider: opts.provider,
-		Model:    opts.model,
-	})
+	rt, err := loadRunnerRuntime(cc.Template, opts.runner, opts.runnerModel, opts.runnerTimeout)
 	if err != nil {
 		return err
 	}
 	llmIdentity := &jsonLLMIdentity{
-		Provider: rt.Provider,
-		Model:    rt.Model,
+		Provider: "local-runner",
+		Runner:   rt.RunnerKind,
+		Model:    rt.RunnerModel,
 	}
-	// Apply language to the scan template too (loadLLMRuntime only mutates
-	// the diff-review template it was handed).
 	if rt.AppCfg != nil {
 		scanTpl.ApplyLanguage(rt.AppCfg.Language)
 	}
 
-	// file_read_diff is meaningless in scan mode (no diff exists). Hiding it
-	// from MainToolDefs stops the LLM from burning tool-call rounds probing
-	// for diff content that does not exist.
-	scanToolDefs := excludeToolDef(rt.MainToolDefs, "file_read_diff")
-
-	// Scan mode always reads file contents from the working tree.
-	fileReader := &tool.FileReader{
-		RepoDir: cc.RepoDir,
-		Mode:    tool.ModeWorkspace,
-		Runner:  cc.GitRunner,
-	}
-	tools := buildToolRegistry(rt.Collector, fileReader)
-
 	ag := scan.NewAgent(scan.Args{
-		RepoDir:               cc.RepoDir,
-		Paths:                 scanPaths,
-		Template:              *scanTpl,
-		SystemRule:            cc.Resolver,
-		FileFilter:            cc.FileFilter,
-		LLMClient:             rt.Client,
-		Tools:                 tools,
-		MainToolDefs:          scanToolDefs,
-		CommentCollector:      rt.Collector,
-		CommentWorkerPool:     llmloop.NewCommentWorkerPool(opts.concurrency),
-		MaxConcurrency:        opts.concurrency,
-		ConcurrentTaskTimeout: opts.perFileTimeout,
-		Model:                 rt.Model,
-		Background:            opts.background,
-		GitRunner:             cc.GitRunner,
-		MaxFileSizeBytes:      scanTpl.MaxFileSizeBytes,
-		MaxTokensBudget:       budget,
-		SkipPlan:              opts.noPlan,
-		SkipDedup:             opts.noDedup,
-		SkipSummary:           opts.noSummary,
-		Resume:                resumeState,
+		RepoDir:          cc.RepoDir,
+		Paths:            scanPaths,
+		Template:         *scanTpl,
+		SystemRule:       cc.Resolver,
+		FileFilter:       cc.FileFilter,
+		CommentCollector: rt.Collector,
+		Model:            rt.RunnerModel,
+		Background:       opts.background,
+		GitRunner:        cc.GitRunner,
+		MaxFileSizeBytes: scanTpl.MaxFileSizeBytes,
+		SkipPlan:         opts.noPlan,
+		SkipDedup:        opts.noDedup,
+		SkipSummary:      opts.noSummary,
+		Resume:           resumeState,
 	})
 
 	q := newQuietHandle(opts.outputFormat, opts.audience)
@@ -211,7 +170,7 @@ func executeScan(opts scanOptions) error {
 	}
 	startTime := time.Now()
 
-	comments, err := ag.Run(ctx)
+	comments, err := ag.RunExternal(ctx, rt.Runner, opts.background)
 	if err != nil {
 		span.SetStatus(codes.Error, err.Error())
 		span.RecordError(err)

@@ -65,12 +65,11 @@ func TestViewerCmd_DefaultAddr(t *testing.T) {
 	}
 }
 
-func TestRunLLMProviders(t *testing.T) {
-	got := captureStdout(t, func() {
-		runLLMProviders()
-	})
-	if !strings.Contains(got, "Built-in providers") {
-		t.Errorf("expected provider listing, got %q", got)
+func TestRootRejectsLLMCommand(t *testing.T) {
+	rootCmd.SetArgs([]string{"llm", "test"})
+	err := rootCmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), "unknown command") {
+		t.Fatalf("err = %v", err)
 	}
 }
 

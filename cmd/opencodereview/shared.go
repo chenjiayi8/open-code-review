@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,11 +11,10 @@ import (
 	"github.com/alibaba/open-code-review/internal/agent"
 	"github.com/alibaba/open-code-review/internal/config/rules"
 	"github.com/alibaba/open-code-review/internal/config/template"
-	"github.com/alibaba/open-code-review/internal/config/toolsconfig"
 	"github.com/alibaba/open-code-review/internal/diff"
 	"github.com/alibaba/open-code-review/internal/gitcmd"
-	"github.com/alibaba/open-code-review/internal/llm"
 	"github.com/alibaba/open-code-review/internal/model"
+	localrunner "github.com/alibaba/open-code-review/internal/runner"
 	"github.com/alibaba/open-code-review/internal/session"
 	"github.com/alibaba/open-code-review/internal/stdout"
 	"github.com/alibaba/open-code-review/internal/telemetry"
@@ -25,7 +23,7 @@ import (
 
 // commonContext bundles the state that both `ocr review` and `ocr scan`
 // need to load *before* deciding whether to dispatch a preview or a real
-// LLM session: a validated template, the resolved repo path, review rules,
+// runner session: a validated template, the resolved repo path, review rules,
 // and a shared git subprocess limiter.
 type commonContext struct {
 	Template   *template.Template
@@ -125,38 +123,19 @@ func resolveWorkingDir(input string, requireGit bool) (string, bool, error) {
 	return absPath, isGit, nil
 }
 
-// llmRuntime bundles the LLM-side state both subcommands need once they've
-// decided to actually run a session: tool definitions, an app-language
-// adjusted template (mutated in place via ApplyLanguage), the LLM client,
-// the resolved model name, and a fresh comment collector.
-type llmRuntime struct {
-	Client       llm.LLMClient
-	Model        string
-	Provider     string // resolved provider name (non-secret label; empty for non-provider endpoints)
-	PlanToolDefs []llm.ToolDef
-	MainToolDefs []llm.ToolDef
-	Collector    *tool.CommentCollector
-	AppCfg       *Config
-	// RuntimeConfig holds the allowlisted, non-secret runtime settings (protocol,
-	// sanitized endpoint host, language, timeout) derived from the resolved
-	// endpoint and app config, for the run manifest's runtime_config_sha256. It
-	// never carries the token or full URL.
+// runnerRuntime bundles the local-runner-side state both subcommands need once
+// they've decided to actually run a session. It loads only non-secret app
+// settings that still apply to local subscription runners.
+type runnerRuntime struct {
+	Runner        *localrunner.Runner
+	RunnerKind    string
+	RunnerModel   string
+	Collector     *tool.CommentCollector
+	AppCfg        *Config
 	RuntimeConfig agent.RuntimeConfig
 }
 
-// loadLLMRuntime loads tool defs from toolConfigPath, reads the app config
-// from the user's default config path (applying the configured language to
-// tpl — defaulting when the config file is absent), resolves the LLM
-// endpoint (honoring resolveOpts), and
-// returns the runtime bundle. tpl is mutated in place.
-func loadLLMRuntime(tpl *template.Template, toolConfigPath string, resolveOpts llm.ResolveOptions) (*llmRuntime, error) {
-	toolEntries, err := toolsconfig.Load(toolConfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("load tools: %w", err)
-	}
-	planToolDefs := agent.BuildToolDefs(toolEntries, true)
-	mainToolDefs := agent.BuildToolDefs(toolEntries, false)
-
+func loadRunnerRuntime(tpl *template.Template, kind, model string, timeoutMinutes int) (*runnerRuntime, error) {
 	cfgPath, err := defaultConfigPath()
 	if err != nil {
 		return nil, err
@@ -165,50 +144,28 @@ func loadLLMRuntime(tpl *template.Template, toolConfigPath string, resolveOpts l
 	if err != nil {
 		return nil, fmt.Errorf("load app config: %w", err)
 	}
-	// Apply the language directive even when the config file is missing
-	// (upstream #fix: ApplyLanguage with empty lang falls back to default).
 	var lang string
 	if appCfg != nil {
 		lang = appCfg.Language
 	}
 	tpl.ApplyLanguage(lang)
 
-	ep, err := llm.ResolveEndpointWithOptions(cfgPath, resolveOpts)
+	r, err := localrunner.New(localrunner.Kind(kind), model, time.Duration(timeoutMinutes)*time.Minute)
 	if err != nil {
-		return nil, fmt.Errorf("resolve LLM endpoint: %w", err)
+		return nil, err
 	}
-
-	return &llmRuntime{
-		Client:       llm.NewLLMClient(ep),
-		Model:        ep.Model,
-		Provider:     ep.Provider,
-		PlanToolDefs: planToolDefs,
-		MainToolDefs: mainToolDefs,
-		Collector:    tool.NewCommentCollector(),
-		AppCfg:       appCfg,
+	return &runnerRuntime{
+		Runner:      r,
+		RunnerKind:  kind,
+		RunnerModel: model,
+		Collector:   tool.NewCommentCollector(),
+		AppCfg:      appCfg,
 		RuntimeConfig: agent.RuntimeConfig{
-			Protocol:     ep.Protocol,
-			EndpointHost: sanitizeEndpointHost(ep.URL),
-			Language:     lang,
-			Timeout:      ep.Timeout,
+			Protocol: "local-runner",
+			Language: lang,
+			Timeout:  time.Duration(timeoutMinutes) * time.Minute,
 		},
 	}, nil
-}
-
-// sanitizeEndpointHost extracts the credential-free host[:port] from a full LLM
-// endpoint URL, dropping scheme, any embedded userinfo, path, query and fragment
-// so no secret material survives into the manifest's runtime_config hash. The
-// host is lowercased for a stable identity (DNS is case-insensitive). An empty
-// or unparseable URL, or one without a host, yields "".
-func sanitizeEndpointHost(rawURL string) string {
-	if strings.TrimSpace(rawURL) == "" {
-		return ""
-	}
-	u, err := url.Parse(rawURL)
-	if err != nil || u.Host == "" {
-		return ""
-	}
-	return strings.ToLower(u.Host) // u.Host is host[:port]; userinfo lives in u.User
 }
 
 // applyCLIExcludes appends user-supplied --exclude patterns (already split
@@ -222,20 +179,6 @@ func applyCLIExcludes(cc *commonContext, patterns []string) {
 		cc.FileFilter = &rules.FileFilter{}
 	}
 	cc.FileFilter.Exclude = append(cc.FileFilter.Exclude, patterns...)
-}
-
-// excludeToolDef returns a copy of defs with any entries whose function name
-// matches name removed. Used by `ocr scan` to hide tools that don't make
-// sense in full-scan mode (e.g. file_read_diff).
-func excludeToolDef(defs []llm.ToolDef, name string) []llm.ToolDef {
-	out := make([]llm.ToolDef, 0, len(defs))
-	for _, d := range defs {
-		if d.Function.Name == name {
-			continue
-		}
-		out = append(out, d)
-	}
-	return out
 }
 
 // quietHandle wraps a stdout.Quiet() restorer so callers can `defer

@@ -1,13 +1,11 @@
 package main
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestParseReviewFlagsBackgroundFile(t *testing.T) {
 	for _, flag := range []string{"--background-file", "-B"} {
 		t.Run(flag, func(t *testing.T) {
-			opts, err := parseReviewFlags([]string{flag, "./docs/req.md"})
+			opts, err := parseReviewFlags([]string{flag, "./docs/req.md", "--preview"})
 			if err != nil {
 				t.Fatalf("parseReviewFlags: %v", err)
 			}
@@ -18,14 +16,13 @@ func TestParseReviewFlagsBackgroundFile(t *testing.T) {
 	}
 }
 
-func TestParseReviewFlagsModelOverride(t *testing.T) {
-	opts, err := parseReviewFlags([]string{"--model", "claude-opus-4-6"})
+func TestParseReviewFlagsRunnerAndModel(t *testing.T) {
+	opts, err := parseReviewFlags([]string{"--runner", "codex", "--runner-model", "gpt-5-codex"})
 	if err != nil {
 		t.Fatalf("parseReviewFlags: %v", err)
 	}
-
-	if opts.model != "claude-opus-4-6" {
-		t.Errorf("model = %q, want %q", opts.model, "claude-opus-4-6")
+	if opts.runner != "codex" || opts.runnerModel != "gpt-5-codex" {
+		t.Fatalf("runner=%q runnerModel=%q", opts.runner, opts.runnerModel)
 	}
 	if opts.outputFormat != "text" {
 		t.Errorf("outputFormat = %q, want %q", opts.outputFormat, "text")
@@ -35,18 +32,15 @@ func TestParseReviewFlagsModelOverride(t *testing.T) {
 	}
 }
 
-func TestParseReviewFlagsProviderAndModelOverrides(t *testing.T) {
-	opts, err := parseReviewFlags([]string{"--provider", "anthropic", "--model", "claude-opus-4-6"})
-	if err != nil {
-		t.Fatalf("parseReviewFlags: %v", err)
-	}
-	if opts.provider != "anthropic" || opts.model != "claude-opus-4-6" {
-		t.Fatalf("provider=%q model=%q", opts.provider, opts.model)
+func TestParseReviewFlagsRejectsInvalidRunner(t *testing.T) {
+	_, err := parseReviewFlags([]string{"--runner", "openai"})
+	if err == nil {
+		t.Fatal("expected invalid runner to fail")
 	}
 }
 
 func TestParseReviewFlagsResume(t *testing.T) {
-	opts, err := parseReviewFlags([]string{"--from", "main", "--to", "feature", "--resume", "session-123"})
+	opts, err := parseReviewFlags([]string{"--from", "main", "--to", "feature", "--runner", "codex", "--resume", "session-123"})
 	if err != nil {
 		t.Fatalf("parseReviewFlags: %v", err)
 	}
@@ -62,80 +56,46 @@ func TestParseReviewFlags_PreviewWithResume(t *testing.T) {
 	}
 }
 
+func TestParseReviewFlagsPreviewDoesNotRequireRunner(t *testing.T) {
+	opts, err := parseReviewFlags([]string{"--preview"})
+	if err != nil {
+		t.Fatalf("preview should not require --runner: %v", err)
+	}
+	if !opts.preview {
+		t.Fatal("expected preview=true")
+	}
+}
+
 func TestParseReviewFlags_InvalidAudience(t *testing.T) {
-	_, err := parseReviewFlags([]string{"--audience", "robot"})
+	_, err := parseReviewFlags([]string{"--runner", "codex", "--audience", "robot"})
 	if err == nil {
 		t.Fatal("expected error for invalid audience")
 	}
 }
 
-func TestParseReviewFlags_NegativeMaxTools(t *testing.T) {
-	_, err := parseReviewFlags([]string{"--max-tools", "-1"})
-	if err == nil {
-		t.Fatal("expected error for negative max-tools")
-	}
-}
-
-func TestParseReviewFlags_MaxToolsBelowMin(t *testing.T) {
-	opts, err := parseReviewFlags([]string{"--max-tools", "5"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if opts.maxTools != 10 {
-		t.Errorf("maxTools = %d, want 10 (clamped to min)", opts.maxTools)
-	}
-}
-
 func TestParseReviewFlags_NegativeMaxGitProcs(t *testing.T) {
-	_, err := parseReviewFlags([]string{"--max-git-procs", "-1"})
+	_, err := parseReviewFlags([]string{"--runner", "codex", "--max-git-procs", "-1"})
 	if err == nil {
 		t.Fatal("expected error for negative max-git-procs")
 	}
 }
 
-func TestParseReviewFlags_NegativeMaxTokensBudget(t *testing.T) {
-	_, err := parseReviewFlags([]string{"--max-tokens-budget", "-1"})
-	if err == nil {
-		t.Fatal("expected error for negative max-tokens-budget")
-	}
-}
-
-func TestParseReviewFlags_BudgetFlagsDefaultZero(t *testing.T) {
-	opts, err := parseReviewFlags([]string{"--from", "main", "--to", "dev"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if opts.maxTokensBudget != 0 {
-		t.Errorf("maxTokensBudget = %d, want 0 (default unlimited)", opts.maxTokensBudget)
-	}
-}
-
-func TestParseReviewFlags_BudgetFlagsParsed(t *testing.T) {
-	opts, err := parseReviewFlags([]string{"--max-tokens-budget", "120000"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if opts.maxTokensBudget != 120000 {
-		t.Errorf("maxTokensBudget = %d, want 120000", opts.maxTokensBudget)
-	}
-}
-
 func TestParseReviewFlags_ConflictingModes(t *testing.T) {
-	_, err := parseReviewFlags([]string{"--from", "main", "--to", "dev", "--commit", "abc"})
+	_, err := parseReviewFlags([]string{"--from", "main", "--to", "dev", "--commit", "abc", "--runner", "codex"})
 	if err == nil {
 		t.Fatal("expected error for conflicting modes")
 	}
 }
 
 func TestParseReviewFlags_FromWithoutTo(t *testing.T) {
-	_, err := parseReviewFlags([]string{"--from", "main"})
+	_, err := parseReviewFlags([]string{"--from", "main", "--runner", "codex"})
 	if err == nil {
 		t.Fatal("expected error for --from without --to")
 	}
 }
 
 func TestParseReviewFlags_ToWithoutFrom(t *testing.T) {
-	_, err := parseReviewFlags([]string{"--to", "dev"})
+	_, err := parseReviewFlags([]string{"--to", "dev", "--runner", "codex"})
 	if err == nil {
 		t.Fatal("expected error for --to without --from")
 	}

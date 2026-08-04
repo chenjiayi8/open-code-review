@@ -272,6 +272,7 @@ type jsonToolCalls struct {
 
 type jsonLLMIdentity struct {
 	Provider string `json:"provider,omitempty"`
+	Runner   string `json:"runner,omitempty"`
 	Model    string `json:"model"`
 }
 

@@ -47,9 +47,8 @@ func TestParentCommands_UnknownSubcommand(t *testing.T) {
 // TestParentCommands_KnownSubcommandStillWorks ensures that adding RunE to
 // parent commands does not break legitimate subcommand routing.
 func TestParentCommands_KnownSubcommandStillWorks(t *testing.T) {
-	// We cannot actually invoke llm test or config provider without a real
-	// config, but we can verify that the subcommand tree resolves correctly by
-	// using the help flag, which is handled by Cobra before RunE.
+	// Verify that the remaining subcommand tree resolves correctly by using the
+	// help flag, which is handled by Cobra before RunE.
 	tests := []struct {
 		name string
 		args []string
@@ -57,11 +56,8 @@ func TestParentCommands_KnownSubcommandStillWorks(t *testing.T) {
 		{"session list help", []string{"session", "list", "--help"}},
 		{"session show help", []string{"session", "show", "--help"}},
 		{"config set help", []string{"config", "set", "--help"}},
-		{"config provider help", []string{"config", "provider", "--help"}},
 		{"delegate preview help", []string{"delegate", "preview", "--help"}},
 		{"delegate rule help", []string{"delegate", "rule", "--help"}},
-		{"llm test help", []string{"llm", "test", "--help"}},
-		{"llm providers help", []string{"llm", "providers", "--help"}},
 		{"rules check help", []string{"rules", "check", "--help"}},
 	}
 
@@ -90,7 +86,6 @@ func TestParentCommands_NoArgsPrintsHelp(t *testing.T) {
 		{"session no args", []string{"session"}},
 		{"config no args", []string{"config"}},
 		{"delegate no args", []string{"delegate"}},
-		{"llm no args", []string{"llm"}},
 		{"rules no args", []string{"rules"}},
 	}
 

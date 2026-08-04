@@ -5,26 +5,16 @@ import (
 	"testing"
 )
 
-func TestRunConfig_UnknownSubcommand(t *testing.T) {
-	err := runConfig([]string{"delete", "foo"})
-	if err == nil {
-		t.Fatal("expected error for unknown subcommand")
-	}
-	if !strings.Contains(err.Error(), "unknown") {
-		t.Errorf("error = %q, expected to contain 'unknown'", err.Error())
+func TestRunConfigSetRequiresValue(t *testing.T) {
+	err := runConfig([]string{"set", "language"})
+	if err == nil || !strings.Contains(err.Error(), "accepts 2 arg") {
+		t.Fatalf("err = %v", err)
 	}
 }
 
-func TestRunConfig_InvalidSetMissingValue(t *testing.T) {
-	err := runConfig([]string{"set", "provider"})
-	if err == nil {
-		t.Fatal("expected error for set without value")
-	}
-}
-
-func TestRunConfig_InvalidUnsetMissingKey(t *testing.T) {
-	err := runConfig([]string{"unset"})
-	if err == nil {
-		t.Fatal("expected error for unset without key")
+func TestRunConfigProviderSubcommandRemoved(t *testing.T) {
+	err := runConfig([]string{"provider"})
+	if err == nil || !strings.Contains(err.Error(), "unknown command") {
+		t.Fatalf("err = %v", err)
 	}
 }
