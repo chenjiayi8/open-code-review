@@ -104,3 +104,21 @@ func TestParseScanFlags_BooleanFlags(t *testing.T) {
 		t.Error("noSummary should be true")
 	}
 }
+
+func TestParseScanFlagsRejectsNegativeRunnerTimeout(t *testing.T) {
+	_, err := parseScanFlags([]string{"--runner", "claude", "--timeout", "-1"})
+	if err == nil || !strings.Contains(err.Error(), "--timeout") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestScanExamplesRequireRunnerForRealExecutionAndAvoidLLMPreviewWording(t *testing.T) {
+	for _, forbidden := range []string{"ocr scan\n", "ocr scan --path", "ocr scan --exclude", "ocr scan --no-plan", "ocr scan --resume"} {
+		if strings.Contains(scanCmd.Example, forbidden) {
+			t.Fatalf("scan example contains runner-less real invocation %q:\n%s", forbidden, scanCmd.Example)
+		}
+	}
+	if strings.Contains(strings.ToLower(scanCmd.Example), "llm") {
+		t.Fatalf("scan example still mentions LLM:\n%s", scanCmd.Example)
+	}
+}

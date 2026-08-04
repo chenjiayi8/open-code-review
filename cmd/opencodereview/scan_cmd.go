@@ -45,28 +45,28 @@ var scanCmd = &cobra.Command{
 	Long:    "OpenCodeReview - Full-File Scan\n\nScan entire files for code review without requiring a diff.",
 	Args:    cobra.NoArgs,
 	Example: `  # Scan the entire repository
-  ocr scan
+  ocr scan --runner codex
 
   # Scan a single directory
-  ocr scan --path internal/agent
+  ocr scan --runner codex --path internal/agent
 
   # Scan multiple files
-  ocr scan --path internal/agent/agent.go,internal/diff/scan.go
+  ocr scan --runner codex --path internal/agent/agent.go,internal/diff/scan.go
 
   # Select a local subscription runner and optional model for this run
   ocr scan --runner claude --runner-model sonnet --format json
 
   # Exclude generated files / fixtures
-  ocr scan --exclude '**/generated/*,**/testdata/*'
+  ocr scan --runner codex --exclude '**/generated/*,**/testdata/*'
 
-  # Preview which files would be scanned without calling the LLM
+  # Preview which files would be scanned without calling a local runner
   ocr scan --preview
 
   # Skip the per-file PLAN_TASK pre-pass
-  ocr scan --no-plan
+  ocr scan --runner codex --no-plan
 
   # Resume a previous full-file scan
-  ocr scan --resume <session-id>`,
+  ocr scan --runner codex --resume <session-id>`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := validateScanOptions(&scanOpts); err != nil {
 			return err

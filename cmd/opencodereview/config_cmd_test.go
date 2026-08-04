@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,7 +68,7 @@ func TestLoadAppConfigMissingReturnsNil(t *testing.T) {
 	}
 }
 
-func TestLoadOrCreateConfigPreservesLegacyFields(t *testing.T) {
+func TestLoadOrCreateConfigDropsLegacyFields(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
 	if err := os.WriteFile(path, []byte(`{"provider":"old","llm":{"auth_token":"secret"},"language":"en"}`), 0o600); err != nil {
@@ -77,7 +78,73 @@ func TestLoadOrCreateConfigPreservesLegacyFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadOrCreateConfig: %v", err)
 	}
-	if cfg.Provider != "old" || cfg.Llm.AuthToken != "secret" || cfg.Language != "en" {
+	if cfg.Language != "en" {
+		t.Fatalf("Language = %q", cfg.Language)
+	}
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "provider") || strings.Contains(string(data), "llm") || strings.Contains(string(data), "secret") {
+		t.Fatalf("legacy fields leaked after load: %s", data)
+	}
+}
+
+func TestRunConfigSetScrubsLegacySecretConfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	path := filepath.Join(home, ".opencodereview", "config.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	legacy := []byte(`{
+		"provider":"anthropic",
+		"model":"claude",
+		"providers":{"anthropic":{"api_key":"secret-provider"}},
+		"custom_providers":{"gateway":{"url":"https://example.invalid","auth_header":"Bearer secret-custom"}},
+		"llm":{"url":"https://llm.invalid","auth_token":"secret-llm"},
+		"mcp_servers":{"github":{"command":"secret-cmd","env":["TOKEN=secret-mcp"]}},
+		"language":"en"
+	}`)
+	if err := os.WriteFile(path, legacy, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := runConfigSet("telemetry.enabled", "true"); err != nil {
+		t.Fatalf("runConfigSet: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"provider", "providers", "custom_providers", "llm", "mcp_servers", "secret-provider", "secret-custom", "secret-llm", "secret-mcp"} {
+		if strings.Contains(string(data), forbidden) {
+			t.Fatalf("config still contains %q after allowed mutation:\n%s", forbidden, data)
+		}
+	}
+	if !strings.Contains(string(data), `"language": "en"`) || !strings.Contains(string(data), `"enabled": true`) {
+		t.Fatalf("allowed language/telemetry settings not preserved:\n%s", data)
+	}
+}
+
+func TestLoadAppConfigIgnoresLegacySecretConfig(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(path, []byte(`{"provider":"anthropic","llm":{"auth_token":"secret"},"mcp_servers":{"x":{"env":["TOKEN=secret"]}},"language":"en","telemetry":{"enabled":true}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadAppConfig(path)
+	if err != nil {
+		t.Fatalf("LoadAppConfig: %v", err)
+	}
+	if cfg == nil || cfg.Language != "en" || cfg.Telemetry == nil || !cfg.Telemetry.Enabled {
 		t.Fatalf("cfg = %+v", cfg)
+	}
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"provider", "llm", "mcp_servers", "secret"} {
+		if strings.Contains(string(data), forbidden) {
+			t.Fatalf("app config exposed legacy field %q: %s", forbidden, data)
+		}
 	}
 }

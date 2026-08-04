@@ -46,39 +46,39 @@ var reviewCmd = &cobra.Command{
 	Long:    "OpenCodeReview - AI-Powered Code Review CLI\n\nStart a diff-based code review using a local subscription runner.",
 	Args:    cobra.NoArgs,
 	Example: `  # Review staged + unstaged + untracked changes in current workspace
-  ocr review
+  ocr review --runner codex
 
   # Review a branch against its base (merge-base mode)
-  ocr review --from master --to dev-ref
+  ocr review --runner codex --from master --to dev-ref
 
   # Review a specific commit
-  ocr review --commit abc123
-  ocr review -c abc123
+  ocr review --runner codex --commit abc123
+  ocr review --runner codex -c abc123
 
   # Resume a previous range review
-  ocr review --from master --to dev-ref --resume <session-id>
+  ocr review --runner codex --from master --to dev-ref --resume <session-id>
 
   # Output JSON format
-  ocr review --format json
-  ocr review -f json
+  ocr review --runner codex --format json
+  ocr review --runner codex -f json
 
   # Select a local subscription runner and optional model for this run
   ocr review --runner codex --runner-model gpt-5-codex --format json
 
   # Agent mode (summary only, no progress lines)
-  ocr review --audience agent
+  ocr review --runner codex --audience agent
 
   # Preview which files will be reviewed
   ocr review --preview
   ocr review -c abc123 -p
 
   # Exclude generated files / fixtures
-  ocr review --exclude '**/generated/*,**/testdata/*'
+  ocr review --runner codex --exclude '**/generated/*,**/testdata/*'
 
   # Provide requirement/business context inline, from a Markdown file, or both
-  ocr review --background "Adding rate limiting to the login API"
-  ocr review --background-file ./docs/requirements.md
-  ocr review --background "Focus on auth" --background-file ./docs/requirements.md`,
+  ocr review --runner codex --background "Adding rate limiting to the login API"
+  ocr review --runner codex --background-file ./docs/requirements.md
+  ocr review --runner codex --background "Focus on auth" --background-file ./docs/requirements.md`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := validateReviewOptions(&reviewOpts); err != nil {
 			return err
