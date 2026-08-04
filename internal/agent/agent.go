@@ -227,71 +227,13 @@ func New(args Args) *Agent {
 
 // Run executes the full review pipeline: parse diffs -> plan per file -> LLM tool-loop -> collect comments.
 func (a *Agent) Run(ctx context.Context) ([]model.LlmComment, error) {
-	// Step 1: Parse diffs
-	ctx, diffSpan := telemetry.StartSpan(ctx, "diff.parse")
-	if err := a.loadDiffs(ctx); err != nil {
-		diffSpan.End()
-		// The builder already exists (agent.New created session + manifest), but
-		// no item was selected yet. Record the run-level input failure at this
-		// trigger point, then finalize and persist so the run still emits a
-		// session_end with a failed manifest instead of looking aborted.
-		if b := a.session.Manifest(); b != nil {
-			_ = b.SetRunFailure(session.RunFailureInput, "failed to resolve review input")
-		}
-		manifestErr := a.finalizeManifest()
-		// Keep the load failure as the primary cause, but never drop a persistence
-		// failure: a run that could not even write its failed session_end must
-		// report both rather than silently prefer one.
-		loadErr := fmt.Errorf("load diffs: %w", err)
-		if ferr := a.session.Finalize(); ferr != nil {
-			manifestErr = errors.Join(manifestErr, fmt.Errorf("finalize session: %w", ferr))
-		}
-		if manifestErr != nil {
-			return nil, errors.Join(loadErr, manifestErr)
-		}
-		return nil, loadErr
+	prep, err := a.prepareReview(ctx)
+	if err != nil {
+		return nil, a.finalizeReviewSessionWithError(err)
 	}
-	telemetry.SetAttr(diffSpan, "files.changed", len(a.diffs))
-	telemetry.SetAttr(diffSpan, "lines.inserted", int64(a.totalInsertions))
-	telemetry.SetAttr(diffSpan, "lines.deleted", int64(a.totalDeletions))
-	diffSpan.End()
-
-	// Build the read-only DiffMap from ALL parsed diffs (before filtering)
-	// so the LLM can query diffs of related but filtered-out files.
-	a.injectDiffMap()
-	a.args.Tools.Freeze()
-
-	totalChanged := len(a.diffs)
-	reviewCount := a.countReviewable(a.diffs)
-	fmt.Fprintf(stdout.Writer(), "[ocr] %d file(s) changed, reviewing %d in %s\n", totalChanged, reviewCount, a.args.RepoDir)
-
-	a.diffs = a.filterDiffs(a.diffs)
-
-	if len(a.diffs) == 0 {
-		fmt.Fprintln(stdout.Writer(), "[ocr] No supported files changed. Skipping review.")
-		telemetry.Event(ctx, "no.files.changed")
-		// No item was ever selected: finalize yields a skipped manifest (no
-		// run_failure), which is the correct terminal state for "nothing to do".
-		// A persistence failure here is still a delivery error — a clean skip
-		// cannot be claimed if its session_end never reached disk.
-		manifestErr := a.finalizeManifest()
-		if ferr := a.session.Finalize(); ferr != nil {
-			manifestErr = errors.Join(manifestErr, fmt.Errorf("finalize session: %w", ferr))
-		}
-		if manifestErr != nil {
-			return []model.LlmComment{}, manifestErr
-		}
-		return []model.LlmComment{}, nil
+	if prep.skipped {
+		return []model.LlmComment{}, a.finalizeReviewSession()
 	}
-
-	a.currentDate = time.Now().Format("2006-01-02 15:04")
-	telemetry.Event(ctx, "review.started",
-		telemetry.AnyToAttr("file.count", totalChanged),
-		telemetry.AnyToAttr("review.count", reviewCount),
-		telemetry.AnyToAttr("repo.dir", a.args.RepoDir))
-
-	// Record file count metric.
-	telemetry.RecordFilesReviewed(ctx, int64(reviewCount))
 
 	// Pre-run cost projection so users aren't surprised by a large review.
 	// Non-blocking warn-only: the estimate is order-of-magnitude and cannot
@@ -317,23 +259,78 @@ func (a *Agent) Run(ctx context.Context) ([]model.LlmComment, error) {
 	if len(comments) > 0 {
 		telemetry.RecordCommentsGenerated(ctx, int64(len(comments)))
 	}
-	// Freeze coverage into the immutable manifest before session_end embeds it,
-	// so the CLI and the persisted session serialize the identical object. A
-	// persistence failure is a delivery error in its own right: when the review
-	// also failed, both facts are reported (errors.Join) rather than letting the
-	// review error hide the fact that session_end never reached disk.
-	if manifestErr := a.finalizeManifest(); manifestErr != nil {
-		err = errors.Join(err, manifestErr)
-	}
-	if ferr := a.session.Finalize(); ferr != nil {
-		finalizeErr := fmt.Errorf("finalize session: %w", ferr)
-		if err != nil {
-			err = errors.Join(err, finalizeErr)
-		} else {
-			err = finalizeErr
-		}
+	if finalizeErr := a.finalizeReviewSession(); finalizeErr != nil {
+		err = errors.Join(err, finalizeErr)
 	}
 	return comments, err
+}
+
+type reviewPreparation struct {
+	skipped bool
+}
+
+// prepareReview is the shared pre-dispatch pipeline for diff-review runners. It
+// parses diffs once, injects the read-only diff map before filtering, freezes
+// tools, applies the normal selection filters including large-diff exclusion,
+// initializes run date/telemetry, and returns skipped when no file remains.
+func (a *Agent) prepareReview(ctx context.Context) (reviewPreparation, error) {
+	ctx, diffSpan := telemetry.StartSpan(ctx, "diff.parse")
+	if err := a.loadDiffs(ctx); err != nil {
+		diffSpan.End()
+		if b := a.session.Manifest(); b != nil {
+			_ = b.SetRunFailure(session.RunFailureInput, "failed to resolve review input")
+		}
+		return reviewPreparation{}, fmt.Errorf("load diffs: %w", err)
+	}
+	telemetry.SetAttr(diffSpan, "files.changed", len(a.diffs))
+	telemetry.SetAttr(diffSpan, "lines.inserted", int64(a.totalInsertions))
+	telemetry.SetAttr(diffSpan, "lines.deleted", int64(a.totalDeletions))
+	diffSpan.End()
+
+	// Build the read-only DiffMap from ALL parsed diffs (before filtering)
+	// so the LLM/local runner can query diffs of related but filtered-out files.
+	a.injectDiffMap()
+	a.args.Tools.Freeze()
+
+	totalChanged := len(a.diffs)
+	reviewCount := a.countReviewable(a.diffs)
+	fmt.Fprintf(stdout.Writer(), "[ocr] %d file(s) changed, reviewing %d in %s\n", totalChanged, reviewCount, a.args.RepoDir)
+
+	a.diffs = a.filterDiffs(a.diffs)
+	if len(a.diffs) == 0 {
+		fmt.Fprintln(stdout.Writer(), "[ocr] No supported files changed. Skipping review.")
+		telemetry.Event(ctx, "no.files.changed")
+		return reviewPreparation{skipped: true}, nil
+	}
+
+	a.diffs = a.filterLargeDiffs(a.diffs)
+	if len(a.diffs) == 0 {
+		fmt.Fprintln(stdout.Writer(), "[ocr] All changed files exceeded the token size limit. Skipping review.")
+		telemetry.Event(ctx, "no.files.changed")
+		return reviewPreparation{skipped: true}, nil
+	}
+
+	a.currentDate = time.Now().Format("2006-01-02 15:04")
+	telemetry.Event(ctx, "review.started",
+		telemetry.AnyToAttr("file.count", totalChanged),
+		telemetry.AnyToAttr("review.count", reviewCount),
+		telemetry.AnyToAttr("repo.dir", a.args.RepoDir))
+
+	// Record file count metric.
+	telemetry.RecordFilesReviewed(ctx, int64(reviewCount))
+	return reviewPreparation{}, nil
+}
+
+func (a *Agent) finalizeReviewSessionWithError(primary error) error {
+	return errors.Join(primary, a.finalizeReviewSession())
+}
+
+func (a *Agent) finalizeReviewSession() error {
+	manifestErr := a.finalizeManifest()
+	if ferr := a.session.Finalize(); ferr != nil {
+		manifestErr = errors.Join(manifestErr, fmt.Errorf("finalize session: %w", ferr))
+	}
+	return manifestErr
 }
 
 // Session returns the session history associated with this Agent.
