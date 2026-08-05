@@ -4,9 +4,44 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestRunExecCommandRedactsSecretsFromFailureStderr(t *testing.T) {
+	env := []string{
+		"OPENAI_API_KEY=openai-secret-sentinel",
+		"CODEX_API_KEY=codex-secret-sentinel",
+		"CODEX_ACCESS_TOKEN=access-secret-sentinel",
+		"ANTHROPIC_API_KEY=anthropic-secret-sentinel",
+		"ANTHROPIC_BASE_URL=https://anthropic-secret.example/v1",
+	}
+	_, err := runExecCommand(context.Background(), "/bin/sh", []string{"-c", `printf '%s\n' 'non-secret diagnostic before auth leak' 'openai-secret-sentinel' 'CODEX_API_KEY=codex-secret-sentinel' 'Authorization: Bearer bearer-secret-sentinel' 'EXTRA_API_KEY=extra-secret-sentinel' 'https://anthropic-secret.example/v1' >&2; exit 7`}, nil, env, "")
+	if err == nil {
+		t.Fatal("expected command failure")
+	}
+	message := err.Error()
+	for _, secret := range []string{
+		"openai-secret-sentinel",
+		"codex-secret-sentinel",
+		"access-secret-sentinel",
+		"anthropic-secret-sentinel",
+		"https://anthropic-secret.example/v1",
+		"bearer-secret-sentinel",
+		"extra-secret-sentinel",
+	} {
+		if strings.Contains(message, secret) {
+			t.Fatalf("error leaked secret %q: %s", secret, message)
+		}
+	}
+	if !strings.Contains(message, "non-secret diagnostic before auth leak") {
+		t.Fatalf("error lost non-secret diagnostic: %s", message)
+	}
+	if !strings.Contains(message, "[redacted]") {
+		t.Fatalf("error did not include redaction marker: %s", message)
+	}
+}
 
 func TestCodexStatusRequiresSavedChatGPTLogin(t *testing.T) {
 	if _, err := parseCodexStatus([]byte("Logged in using ChatGPT\n")); err != nil {
