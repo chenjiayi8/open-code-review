@@ -64,7 +64,7 @@ Claude Code でコマンドを名前で呼び出します。plugin marketplace �
 /open-code-review:review focus on race conditions in commit abc123
 ```
 
-prompt はあなたのリクエストを解析し、正しい `ocr review` 引数を選択します。引数なし → 作業領域モード（staged + unstaged + untracked）、commit の言及 → `--commit`、ブランチ区間の言及 →
+prompt はあなたのリクエストを解析し、`ocr review --runner codex` に渡す正しい引数を選択します。引数なし → 作業領域モード（staged + unstaged + untracked）、commit の言及 → `--commit`、ブランチ区間の言及 →
 `--from` / `--to`。OCR の引数を直接透過的に渡すこともできます
 （例：`/open-code-review:review --commit abc123` や `--from main --to feature`）。
 
@@ -72,7 +72,7 @@ prompt はあなたのリクエストを解析し、正しい `ocr review` 引�
 
 コマンドの prompt はとても短く、3 ステップです。
 
-1. **レビューの実行。** あなたのリクエストから推論した引数を用いて `ocr review --audience agent`
+1. **レビューの実行。** あなたのリクエストから推論した引数を用いて `ocr review --runner codex --audience agent`
    を呼び出します（要件コンテキストが記述されている場合はオプションの `--background` を追加）。出力は 5 分のタイムアウト内で取得されます。
 2. **フィルタリングと評価。** 各コメントを **High** / **Medium** / **Low** に分類します。低信頼度（誤検知の疑い、些細な指摘、コンテキスト不足）のコメントは黙って破棄され、その他は表示されます。
 3. **修正。** 採用すべき High/Medium 項目に対して修正を自動的に適用します。

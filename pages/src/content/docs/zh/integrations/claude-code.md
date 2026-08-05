@@ -71,7 +71,7 @@ markdown prompt），上面的文件复制方法就是安装路径：把 `open-c
 /open-code-review:review focus on race conditions in commit abc123
 ```
 
-prompt 解析你的请求并选择正确的 `ocr review` 参数：无参数 → 工作区模式
+prompt 解析你的请求并为 `ocr review --runner codex` 选择正确参数：无参数 → 工作区模式
 （staged + unstaged + untracked），提到 commit → `--commit`，提到分支区间 →
 `--from` / `--to`。你也可以直接透传 OCR 参数
 （如 `/open-code-review:review --commit abc123` 或 `--from main --to feature`）。
@@ -80,7 +80,7 @@ prompt 解析你的请求并选择正确的 `ocr review` 参数：无参数 → 
 
 命令 prompt 很短——三步：
 
-1. **运行评审。** 用从你请求推断的参数调用 `ocr review --audience agent`
+1. **运行评审。** 用从你请求推断的参数调用 `ocr review --runner codex --audience agent`
    （描述了需求上下文时加可选 `--background`）。输出在 5 分钟超时内捕获。
 2. **过滤与评估。** 把每条评论分为 **High** / **Medium** / **Low**。低置信
    （疑似误报、吹毛求疵、缺上下文）评论被静默丢弃；其余展示。

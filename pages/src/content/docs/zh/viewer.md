@@ -141,7 +141,7 @@ OpenTelemetry exporter 是另一回事——如何让 prompt 内容不进入导�
 
 ## 查看器不适用时
 
-- 程序化后处理（CI、仪表盘）用 `ocr review --format json --audience agent`。
+- 程序化后处理（CI、仪表盘）用 `ocr review --runner codex --format json --audience agent`。
   查看器为人渲染，不为机器。
 - 如需跨多会话 grep，直接对 JSONL 文件用 `jq`。UI 中暂无搜索框。
 

@@ -141,7 +141,7 @@ OpenTelemetry exporter は別の話です——prompt の内容をエクスポ�
 
 ## ビューアが適さない場合
 
-- プログラムによる後処理（CI、ダッシュボード）には `ocr review --format json --audience agent` を使用します。
+- プログラムによる後処理（CI、ダッシュボード）には `ocr review --runner codex --format json --audience agent` を使用します。
   ビューアは人間向けのレンダリングであり、機械向けではありません。
 - 複数セッションにまたがる grep が必要な場合は、JSONL ファイルに対して直接 `jq` を使用します。UI にはまだ検索ボックスがありません。
 

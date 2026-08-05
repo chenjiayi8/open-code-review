@@ -204,7 +204,7 @@ Rule:
 ### PR ごとの上書き
 
 ```bash
-ocr review --rule ./.review-rules-only-for-this-pr.json
+ocr review --runner codex --rule ./.review-rules-only-for-this-pr.json
 ```
 
 プロジェクト層とグローバル層の両方を同時にバイパスします。単一の PR が完全に異なるレビューチェックリスト（例: セキュリティレビューのみ）を必要とするときに便利です。
@@ -226,6 +226,6 @@ ocr review --rule ./.review-rules-only-for-this-pr.json
 
 ## 関連項目
 
-- [CLI リファレンス](../cli-reference/): `ocr review --rule`、`--preview`、`ocr rules check`。
+- [CLI リファレンス](../cli-reference/): `ocr review --runner codex --rule`、`ocr review --preview`、`ocr rules check`。
 - [設定](../configuration/): config ファイルの場所と階層的な解決チェーン。
 - [アーキテクチャ](../architecture/): 解決されたルールがどのように agent prompt に供給されるか。

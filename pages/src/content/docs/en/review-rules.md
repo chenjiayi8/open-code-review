@@ -247,7 +247,7 @@ Files outside `src/` still go through the normal ext / default checks —
 ### Per-PR override
 
 ```bash
-ocr review --rule ./.review-rules-only-for-this-pr.json
+ocr review --runner codex --rule ./.review-rules-only-for-this-pr.json
 ```
 
 Bypasses both the project and global layers — handy when a single PR
@@ -271,6 +271,6 @@ inherits them:
 
 ## See Also
 
-- [CLI Reference](../cli-reference/) — `ocr review --rule`, `--preview`, and `ocr rules check`.
+- [CLI Reference](../cli-reference/) — `ocr review --runner codex --rule`, `ocr review --preview`, and `ocr rules check`.
 - [Configuration](../configuration/) — config file locations and the layered resolution chain.
 - [Architecture](../architecture/) — how the resolved rule feeds the agent prompt.

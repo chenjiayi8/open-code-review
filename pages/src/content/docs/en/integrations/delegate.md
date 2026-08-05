@@ -153,7 +153,7 @@ Classify each finding by severity:
 
 | Mode | Who calls the LLM? | Use case |
 |------|-------------------|----------|
-| [Agent Skill](../agent-skill/) | OCR | Agent invokes `ocr review`; OCR drives the full review |
+| [Agent Skill](../agent-skill/) | OCR | Agent invokes `ocr review --runner codex`; OCR drives the full review |
 | [Command (Claude Code)](../claude-code/) | OCR | Slash command in Claude Code; OCR drives the review |
 | **Delegation Mode** | Host agent | OCR provides scaffolding; agent drives the review |
 

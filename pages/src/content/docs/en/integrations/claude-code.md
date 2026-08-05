@@ -80,7 +80,7 @@ you copied the file directly:
 /open-code-review:review focus on race conditions in commit abc123
 ```
 
-The prompt parses your request and picks the right `ocr review` flags:
+The prompt parses your request and picks the right flags for `ocr review --runner codex`:
 no arguments → workspace mode (staged + unstaged + untracked), mention
 of a commit → `--commit`, mention of a branch range → `--from` / `--to`.
 You can also pass OCR flags through directly (e.g.
@@ -90,7 +90,7 @@ You can also pass OCR flags through directly (e.g.
 
 The command prompt is short — three steps:
 
-1. **Run the review.** Invoke `ocr review --audience agent` with the
+1. **Run the review.** Invoke `ocr review --runner codex --audience agent` with the
    flags inferred from your request (plus an optional `--background`
    when you've described requirement context). Output is captured with
    a 5-minute timeout.

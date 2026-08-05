@@ -249,7 +249,7 @@ default_path — `include` это обход, а не белый список.
 ### Переопределение для отдельного PR
 
 ```bash
-ocr review --rule ./.review-rules-only-for-this-pr.json
+ocr review --runner codex --rule ./.review-rules-only-for-this-pr.json
 ```
 
 Обходит и проектный, и глобальный уровни — удобно, когда один PR требует
@@ -273,6 +273,6 @@ ocr review --rule ./.review-rules-only-for-this-pr.json
 
 ## Смотрите также
 
-- [Справочник CLI](../cli-reference/) — `ocr review --rule`, `--preview` и `ocr rules check`.
+- [Справочник CLI](../cli-reference/) — `ocr review --runner codex --rule`, `ocr review --preview` и `ocr rules check`.
 - [Конфигурация](../configuration/) — расположение файлов конфигурации и многоуровневая цепочка разрешения.
 - [Архитектура](../architecture/) — как разрешённое правило попадает в промпт агента.

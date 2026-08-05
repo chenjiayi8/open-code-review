@@ -139,7 +139,7 @@ cat <path>                     # 新的未跟踪文件
 
 | 模式 | 谁调用 LLM？ | 适用场景 |
 |------|-------------|----------|
-| [Agent Skill](../agent-skill/) | OCR | Agent 调用 `ocr review`，OCR 驱动完整审查 |
+| [Agent Skill](../agent-skill/) | OCR | Agent 调用 `ocr review --runner codex`，OCR 驱动完整审查 |
 | [Command（Claude Code）](../claude-code/) | OCR | Claude Code 中的斜杠命令，OCR 驱动审查 |
 | **委托模式** | 宿主 Agent | OCR 提供脚手架，Agent 驱动审查 |
 
