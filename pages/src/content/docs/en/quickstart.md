@@ -10,91 +10,42 @@ Get your first code review running in a few minutes.
 
 - **Git ≥ 2.41**
 - **Node.js ≥ 18**
-- **LLM API key** (not needed if using [Delegation Mode](../integrations/delegate/))
+- **Codex CLI or Claude Code CLI with an active local subscription login**
 
 ## Step 1 — Install the CLI
 
 ```bash
 npm install -g @alibaba-group/open-code-review
-```
-
-```bash
 ocr version
 ```
 
-> See [Installation](../installation/) for more methods.
+## Step 2 — Authenticate a local runner
 
-## Step 2 — Configure an LLM
-
-> If you're using [Delegation Mode](../integrations/delegate/) (e.g. running inside Claude Code), the host agent supplies the model — skip to Step 4.
+OCR delegates LLM work to an installed local CLI. The local CLI owns subscription authentication; OCR neither configures nor uses provider API keys.
 
 ```bash
-ocr config provider
+codex login                 # or: claude auth login --claudeai
+ocr review --runner codex
+ocr scan --runner claude --path internal/agent
 ```
 
-It lets you pick a built-in or custom provider, enter an API key, choose a model, saves everything to the config file, and then runs `ocr llm test` once to verify the endpoint. To switch models later:
+`--runner` is required for review and scan runs. Use optional `--runner-model <name>` per run when you want to override the runner default. Read-only/preflight commands such as `--preview` do not invoke a runner and can run before login.
 
-```bash
-ocr config model
-```
-
-### Alternative: non-interactive command
-
-In CI or a no-TUI environment, write to the same config directly with `ocr config set`:
-
-```bash
-ocr config set provider                    anthropic
-ocr config set model                       claude-opus-4-6
-ocr config set providers.anthropic.api_key sk-ant-xxxxxxxxxx
-```
-
-## Step 3 — Test connectivity
-
-```bash
-ocr llm test
-```
-
-If you get an error like `no valid LLM endpoint configured`, recheck the Step 2 config. A 401 / 403 means the token is wrong or expired.
-
-## Step 4 — Run your first review
-
-Move into any Git repository and run:
+## Step 3 — Run your first review
 
 ```bash
 cd path/to/your-repo
-
-# Workspace mode — reviews staged + unstaged + untracked changes (default)
-ocr review
-
-# Branch range — reviews `main..feature-branch`
-ocr review --from main --to feature-branch
-
-# Single commit — reviews the diff that commit introduced
-ocr review --commit abc123
+ocr review --runner codex
+ocr review --runner codex --from main --to feature-branch
+ocr review --runner codex --commit abc123
+ocr scan --runner claude --path internal/agent
 ```
 
-> See [CLI Reference](../cli-reference/) for the complete list of `ocr review` flags (concurrency tuning, output format, audience mode, background context, and more) plus every other sub-command.
-
-### Want to see what would be reviewed first?
-
-```bash
-ocr review --preview              # workspace
-ocr review -c abc123 --preview    # commit
-```
-
-### JSON output for systems
-
-`--audience agent` suppresses the human-friendly progress UI so the only thing on stdout is the JSON / final summary — exactly what an upstream agent or CI script wants.
-
-```bash
-ocr review --format json --audience agent > review.json
-```
+If OCR reports a preflight authentication failure, run the login command for the selected runner and retry. CI authentication is separate from local subscription login; authenticate Codex or Claude inside the CI job instead of configuring OCR provider secrets.
 
 ## See Also
 
 - [Installation](../installation/) — every install method and OCR's state directory.
-- [Configuration](../configuration/) — every env var, config key, and built-in provider.
+- [Configuration](../configuration/) — local runner authentication and CI notes.
 - [CLI Reference](../cli-reference/) — every sub-command, flag, and output mode.
 - [Review Rules](../review-rules/) — customize what gets reviewed.
-- [Integrations](../integrations/agent-skill/) — embed OCR in Claude Code, an Agent skill, or CI.
-- [FAQ](../faq/) — known errors and remedies.

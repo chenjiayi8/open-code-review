@@ -112,20 +112,19 @@ npm install -g @alibaba-group/open-code-review
 
 #### クイックスタート
 
-**1. LLMの設定**
+**1. ローカル runner にログイン**
 
-コードレビューの前にLLMの設定が必要です。[デリゲートモード](https://open-codereview.ai/docs/delegate)を使用する場合は不要です。
+OCR はインストール済みのローカル CLI サブスクリプション経由で実行します。使う runner に先にログインしてください。OCR 自体はプロバイダー API キーを設定・使用しません。
 
 ```bash
-ocr config provider          # ビルトインプロバイダーを選択またはカスタムプロバイダーを追加
-ocr config model             # アクティブなプロバイダーのモデルを選択
+codex login                 # or: claude auth login --claudeai
+ocr review --runner codex
+ocr scan --runner claude --path internal/agent
 ```
 
-![Provider setup](imgs/providers.jpg)
+`--preview` などの読み取り専用/プリフライト以外では、`ocr review` と `ocr scan` に `--runner` が必須です。1 回の実行だけ runner の既定モデルを変えたい場合は `--runner-model <name>` を任意で指定します。
 
-対話的UIがプロバイダーの選択、APIキーの入力、モデル設定をガイドし、完了後に自動的に接続テストを行います。
-
-CLIセットアップ、環境変数、カスタムプロバイダーなどの高度な設定については、[設定ガイド](https://open-codereview.ai/docs/configuration)を参照してください。
+ローカル設定は[設定ガイド](https://open-codereview.ai/docs/configuration)を参照してください。CI 認証は別物です。CI ジョブでは OCR のプロバイダー資格情報ではなく、その環境で選択した runner にログインしてください。
 
 **2. レビュー**
 
@@ -133,22 +132,22 @@ CLIセットアップ、環境変数、カスタムプロバイダーなどの�
 cd your-project
 
 # ワークスペースモード — ステージ済み・未ステージ・未追跡のすべての変更をレビュー
-ocr review
+ocr review --runner codex
 
 # ブランチ範囲 — 2つのrefを比較
-ocr review --from main --to feature-branch
+ocr review --runner codex --from main --to feature-branch
 
 # 単一コミット
-ocr review --commit abc123
+ocr review --runner codex --commit abc123
 
 # 中断した範囲または単一 commit レビューを再開
 ocr session list
-ocr review --from main --to feature-branch --resume <session-id>
+ocr review --runner codex --from main --to feature-branch --resume <session-id>
 
 # フルファイルスキャン — diffではなくファイル全体をレビュー（git履歴不要）
-ocr scan                          # リポジトリ全体をスキャン
-ocr scan --path internal/agent    # ディレクトリまたは特定のファイルをスキャン
-ocr scan --resume <session-id>   # 中断したフルファイルスキャンを再開
+ocr scan --runner claude          # リポジトリ全体をスキャン
+ocr scan --runner claude --path internal/agent    # ディレクトリまたは特定のファイルをスキャン
+ocr scan --runner claude --resume <session-id>   # 中断したフルファイルスキャンを再開
 
 # デリゲートモード — AI コーディングエージェントが自らレビューを実行
 # OCR はファイル選択とルール解決を担当。LLM 設定不要
