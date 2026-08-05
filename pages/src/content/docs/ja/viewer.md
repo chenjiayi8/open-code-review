@@ -57,7 +57,7 @@ Representative JSONL records:
 ```json
 {"type":"review_item_done","filePath":"src/foo.go","comments":[{"path":"src/foo.go","content":"..."}]}
 {"type":"review_item_failed","filePath":"src/bar.go","error":"runner timeout"}
-{"type":"session_end","run_manifest":{"selected_count":2,"completed_count":1,"failed_count":1}}
+{"type":"session_end","run_manifest":{"schema_version":"ocr.run-manifest/v1","run_id":"session-123","operation":"review","terminal_state":"partial","coverage":{"selected":[{"item_id":"...","path":"src/foo.go","fingerprint":"..."},{"item_id":"...","path":"src/bar.go","fingerprint":"..."}],"completed":[{"item_id":"...","path":"src/foo.go","fingerprint":"..."}],"reused":[],"failed":[{"item_id":"...","path":"src/bar.go","fingerprint":"...","classification":"timeout","reason":"runner timeout"}],"waived":[]},"elapsed_ms":8421}}
 ```
 
 Disk space を空けるには session files 全体を削除してください。Viewer は残った files から index を再構築します。
