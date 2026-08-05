@@ -20,11 +20,11 @@ ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```
 
-このエラーは、選択した runner が見つからない、ログアウトしている、または現在の環境で利用できないことを示します。runner をインストール/ログインしてから再試行してください。OCR 独自の runner 認証変数を作らず、選択した runner の公式ログインフローで認証してください。
+このエラーは、選択した runner が見つからない、未認証、または現在の環境で利用できないことを示します。runner をインストールし、その runner がサポートするネイティブ方式（既存ログインまたは API トークン）で認証してから再試行してください。OCR 独自の runner 認証変数を作らないでください。
 
 ### Preview は動くが review が失敗する
 
-`ocr review --preview` は読み取り専用で runner を呼び出しません。完全な review は、`--runner` がない場合や選択した Codex/Claude CLI が未認証の場合に失敗します。ログイン後、`--runner codex` または `--runner claude` 付きで再実行してください。
+`ocr review --preview` は読み取り専用で runner を呼び出しません。完全な review は、`--runner` がない場合や選択した Codex/Claude CLI が未認証の場合に失敗します。認証後、`--runner codex` または `--runner claude` 付きで再実行してください。
 
 ### Runner の認証エラー
 
@@ -38,7 +38,7 @@ ocr scan --runner claude --path internal/agent
 
 ### local runner がツール、quota、タイムアウトのエラーを返す
 
-OCR はモデル実行をログイン済みの Codex または Claude CLI に委譲します。runner がツール、quota、retry、timeout の問題を報告する場合は runner のログイン状態を確認し、`--path`、`--exclude`、または小さな diff で範囲を絞ってください。処理に本当に時間が必要な場合は `--timeout <minutes>` を上げます。
+OCR はモデル実行をネイティブ認証済みの Codex または Claude CLI に委譲します。runner がツール、quota、retry、timeout の問題を報告する場合は runner の認証状態を確認し、`--path`、`--exclude`、または小さな diff で範囲を絞ってください。処理に本当に時間が必要な場合は `--timeout <minutes>` を上げます。
 
 ## フィルタリングとルール
 
@@ -139,7 +139,7 @@ OCR は検証済みコメントを保持し、未 coverage または失敗した
 
 ### CI での実行がローカルよりずっと遅い
 
-CI 環境では選択した runner のインストールと認証が毎回必要になり、ローカル cache もありません。OCR 実行前に Codex または Claude にログインしていることを確認してください。runner が quota/timeout を報告する場合は範囲を絞るか、`--timeout <minutes>` を使います。
+CI 環境では選択した runner のインストールと認証が毎回必要になり、ローカル cache もありません。OCR 実行前に Codex または Claude がネイティブ方式（既存ログインまたは API トークン）で認証されていることを確認してください。runner が quota/timeout を報告する場合は範囲を絞るか、`--timeout <minutes>` を使います。
 
 ## 出力と統合
 

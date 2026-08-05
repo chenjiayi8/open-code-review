@@ -4,7 +4,7 @@ sidebar:
   order: 9
 ---
 
-Review 和 scan 的模型工作委托给所选本地订阅 runner：Codex CLI 或 Claude Code CLI。OCR 负责确定性选择、校验、覆盖率和 session 输出。
+Review 和 scan 的模型工作委托给所选本地 runner：Codex CLI 或 Claude Code CLI。OCR 负责确定性选择、校验、覆盖率和 session 输出。
 
 ## Runner 选择
 
@@ -21,7 +21,7 @@ OCR 为一次 review 或 scan 启动一个已认证的本地 runner 进程。嵌
 
 - Codex 通过已安装的 Codex CLI 运行。
 - Claude 通过已安装的 Claude Code CLI 运行，并按只读 `Read`、`Glob`、`Grep` 权限预期工作。
-- 登录、订阅 quota、retry 和模型侧工具行为属于所选 runner CLI。
+- 登录、API token、quota、retry 和模型侧工具行为属于所选 runner CLI。
 
 `--timeout <minutes>` 限制整体 runner 进程。运行过大时，请用 review range、`--exclude` 或 scan `--path` 缩小 selection。
 

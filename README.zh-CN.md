@@ -36,7 +36,7 @@
 
 ## Open Code Review 是什么？
 
-Open Code Review 是一款 AI 驱动的代码审查 CLI 工具。它的前身是阿里集团内部官方 AI 代码审查助手，过去两年在内部服务了数万开发者，识别了数百万个代码缺陷。经过大规模充分验证后，我们将其孵化为开源项目，对社区开放。只需登录本地订阅 runner 即可使用。
+Open Code Review 是一款 AI 驱动的代码审查 CLI 工具。它的前身是阿里集团内部官方 AI 代码审查助手，过去两年在内部服务了数万开发者，识别了数百万个代码缺陷。经过大规模充分验证后，我们将其孵化为开源项目，对社区开放。安装 Codex 或 Claude，并用该 CLI 支持的原生方式（已有登录或 API token）完成认证，再通过 `--runner` 选择它即可使用。
 
 它读取 Git diff，通过具备工具调用能力的 Agent 将变更文件交给所选且已认证的本地 runner，生成具有行级精度的结构化审查意见。Agent 可以读取完整文件内容、搜索代码库、检查其他变更文件以获取上下文，从而进行深度审查——而非仅停留在表面的 diff 反馈。除了 diff 审查，`ocr scan` 可以审查整个文件，适用于审计不熟悉的代码库或没有有意义 diff 的目录。
 
@@ -112,9 +112,9 @@ npm install -g @alibaba-group/open-code-review
 
 #### 快速开始
 
-**1. 登录本地 runner**
+**1. 认证本地 runner**
 
-OCR 现在通过已安装的本地 CLI 订阅运行。先登录你要使用的 runner；OCR 本身不会保存 runner 凭据。
+OCR 通过已安装的 Codex 或 Claude CLI 运行。请用该 CLI 支持的原生方式（已有登录或 API token）认证你要使用的 CLI；OCR 本身不会保存 runner 凭据。
 
 ```bash
 codex login                 # or use the runner's supported API-token auth
@@ -124,7 +124,7 @@ ocr scan --runner claude --path internal/agent
 
 除 `--preview` 等只读/预检命令外，`ocr review` 与 `ocr scan` 都必须传入 `--runner`。如需为单次运行覆盖 runner 默认模型，可选传入 `--runner-model <name>`。
 
-本地设置见[配置指南](https://open-codereview.ai/docs/configuration)。CI 认证是独立的：CI 任务应在该环境中登录所选 runner，而不是保存 OCR 自有凭据。
+本地设置见[配置指南](https://open-codereview.ai/docs/configuration)。CI 认证是独立的：CI 任务应在该环境中用原生方式（已有登录或 API token）认证所选 runner，而不是保存 OCR 自有凭据。
 
 **2. 开始审查**
 
@@ -172,7 +172,7 @@ ocr delegate rule src/main.go src/handler.go
   - [OpenCode](plugins/open-code-review/opencode/README.md) —— 安装原生评审工具和斜杠命令
   - [兼容 Skill 的 Agent](https://open-codereview.ai/docs/agent-skill) —— 安装可移植的 Agent Skill
 - 评审执行模式 —— 完成集成后，选择评审的执行方式
-  - [本地 runner 模式](https://open-codereview.ai/docs/configuration) —— OCR 通过已认证的 Codex 或 Claude 订阅 runner 执行评审
+  - [本地 runner 模式](https://open-codereview.ai/docs/configuration) —— OCR 通过已原生认证的 Codex 或 Claude CLI 执行评审
   - [委托模式](https://open-codereview.ai/docs/delegate) —— 编程 Agent 直接执行评审；无需 OCR runner 配置
 - [CI/CD 集成](https://open-codereview.ai/docs/cicd) —— 支持 GitHub Actions、GitLab CI、GitFlic CI、Gerrit 集成
 - [会话查看器](https://open-codereview.ai/docs/viewer) —— 在浏览器中浏览和回放评审会话

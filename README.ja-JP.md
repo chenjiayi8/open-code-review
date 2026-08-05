@@ -36,7 +36,7 @@
 
 ## Open Code Reviewとは？
 
-Open Code ReviewはAIを活用したコードレビューCLIツールです。もともとはAlibaba Group社内の公式AIコードレビューアシスタントとして誕生し、過去2年間で数万人の開発者にサービスを提供し、数百万件のコード欠陥を発見してきました。大規模な環境で徹底的に検証された後、コミュニティ向けのオープンソースプロジェクトとして公開されました。ローカルサブスクリプション runner にログインするだけで使い始められます。
+Open Code ReviewはAIを活用したコードレビューCLIツールです。もともとはAlibaba Group社内の公式AIコードレビューアシスタントとして誕生し、過去2年間で数万人の開発者にサービスを提供し、数百万件のコード欠陥を発見してきました。大規模な環境で徹底的に検証された後、コミュニティ向けのオープンソースプロジェクトとして公開されました。Codex または Claude をインストールし、その CLI がサポートするネイティブ認証（既存ログインまたは API トークン）を済ませて `--runner` で選択すれば使い始められます。
 
 Gitのdiffを読み取り、変更されたファイルをツール利用機能を持つエージェント経由で、選択済みかつ認証済みのローカル runner に渡し、行レベルの精度で構造化されたレビューコメントを生成します。エージェントはファイル全体の内容を読み取り、コードベースを検索し、コンテキストのために他の変更ファイルを参照し、深いレビューを生成できます — 単なる表面的なdiffへのフィードバックではありません。diffレビュー以外にも、`ocr scan` はファイル全体をレビューできます。不慣れなコードベースの監査や、意味のあるdiffがないディレクトリの検査に便利です。
 
@@ -112,9 +112,9 @@ npm install -g @alibaba-group/open-code-review
 
 #### クイックスタート
 
-**1. ローカル runner にログイン**
+**1. ローカル runner を認証**
 
-OCR はインストール済みのローカル CLI サブスクリプション経由で実行します。使う runner に先にログインしてください。OCR 自体は runner 資格情報を保存しません。
+OCR はインストール済みの Codex または Claude CLI 経由で実行します。使う CLI を、その CLI がサポートするネイティブ方式（既存ログインまたは API トークン）で認証してください。OCR 自体は runner 資格情報を保存しません。
 
 ```bash
 codex login                 # or use the runner's supported API-token auth
@@ -124,7 +124,7 @@ ocr scan --runner claude --path internal/agent
 
 `--preview` などの読み取り専用/プリフライト以外では、`ocr review` と `ocr scan` に `--runner` が必須です。1 回の実行だけ runner の既定モデルを変えたい場合は `--runner-model <name>` を任意で指定します。
 
-ローカル設定は[設定ガイド](https://open-codereview.ai/docs/configuration)を参照してください。CI 認証は別物です。CI ジョブでは OCR 独自の資格情報ではなく、その環境で選択した runner にログインしてください。
+ローカル設定は[設定ガイド](https://open-codereview.ai/docs/configuration)を参照してください。CI 認証は別物です。CI ジョブでは OCR 独自の資格情報ではなく、その環境で選択した runner をネイティブ方式（既存ログインまたは API トークン）で認証してください。
 
 **2. レビュー**
 
@@ -172,7 +172,7 @@ ocr delegate rule src/main.go src/handler.go
   - [OpenCode](plugins/open-code-review/opencode/README.md) — ネイティブレビュー・ツールとスラッシュコマンドをインストール
   - [Skill 対応エージェント](https://open-codereview.ai/docs/agent-skill) — 移植可能なエージェントスキルをインストール
 - レビュー実行モード — 連携後、レビューの実行方法を選択
-  - [ローカル runner モード](https://open-codereview.ai/docs/configuration) — OCR が認証済みの Codex または Claude サブスクリプション runner 経由でレビューを実行
+  - [ローカル runner モード](https://open-codereview.ai/docs/configuration) — OCR がネイティブ認証済みの Codex または Claude CLI 経由でレビューを実行
   - [デリゲートモード](https://open-codereview.ai/docs/delegate) — コーディングエージェントが自身のモデル機能でレビューを直接実行。OCR runner 設定は不要
 - [CI/CD 連携](https://open-codereview.ai/docs/cicd) — GitHub Actions、GitLab CI、GitFlic CI、Gerrit との統合
 - [セッションビューアー](https://open-codereview.ai/docs/viewer) — ブラウザでレビューセッションを閲覧・再生

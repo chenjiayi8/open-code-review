@@ -19,15 +19,15 @@ ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```
 
-如果 OCR 报告需要 runner 订阅认证，说明所选 runner 缺失、未登录，或在当前环境不可用。安装/登录该 runner 后重试。不要发明 OCR 自有的 runner 凭据变量；请使用所选 runner 的官方登录流程认证。
+如果 OCR 报告 runner 认证失败，说明所选 runner 缺失、未认证，或在当前环境不可用。请用该 runner 官方支持的登录或 API token 机制完成认证后重试。不要发明 OCR 自有的 runner 凭据变量。
 
 ### Preview 可用但 review 失败
 
-`ocr review --preview` 是只读命令，不调用 runner。完整 review 仍可能因为缺少 `--runner` 或所选 Codex/Claude CLI 未认证而失败。登录后用 `--runner codex` 或 `--runner claude` 重新运行。
+`ocr review --preview` 是只读命令，不调用 runner。完整 review 仍可能因为缺少 `--runner` 或所选 Codex/Claude CLI 未认证而失败。认证后用 `--runner codex` 或 `--runner claude` 重新运行。
 
 ### Runner 返回认证失败
 
-登录、API token、额度或权限错误来自所选 Codex 或 Claude CLI。请在同一个 shell 或 CI job 中重新认证该工具后重试 OCR。在 CI 中，先用 CI 平台支持的 secret/OIDC/device-flow 机制认证 runner，再运行 `ocr review --runner ...`。
+认证、API token、额度或权限错误来自所选 Codex 或 Claude CLI。请在同一个 shell 或 CI job 中重新认证该工具后重试 OCR。在 CI 中，先用 CI 平台支持的 secret/OIDC/device-flow 机制认证 runner，再运行 `ocr review --runner ...`。
 
 ### `not a git repository`
 
@@ -36,7 +36,7 @@ ocr scan --runner claude --path internal/agent
 
 ### 本地 runner 报告工具、额度或超时错误
 
-OCR 现在把模型执行交给已登录的 Codex 或 Claude CLI。若 runner 报告工具、额度、重试或超时问题，请先确认 runner 登录状态，再用 `--path`、`--exclude` 或更小的 diff 缩小范围；如果确实需要更长时间，可提高 `--timeout <minutes>`。
+OCR 现在把模型执行交给已原生认证的 Codex 或 Claude CLI。若 runner 报告工具、额度、重试或超时问题，请先确认 runner 认证状态，再用 `--path`、`--exclude` 或更小的 diff 缩小范围；如果确实需要更长时间，可提高 `--timeout <minutes>`。
 
 ## 过滤与规则
 
@@ -132,7 +132,7 @@ OCR 会保留已成功验证的评论，并在 session/JSON 输出中记录未�
 
 ### CI 运行比本地慢得多
 
-CI 环境通常需要重新安装并认证所选 runner，且没有本地缓存。确认 CI job 在运行 OCR 前已登录 Codex 或 Claude；若 runner 报告 quota/timeout，请缩小范围或使用 `--timeout <minutes>`。
+CI 环境通常需要重新安装并认证所选 runner，且没有本地缓存。确认 CI job 在运行 OCR 前已用原生方式（已有登录或 API token）认证 Codex 或 Claude；若 runner 报告 quota/timeout，请缩小范围或使用 `--timeout <minutes>`。
 
 ## 输出与集成
 

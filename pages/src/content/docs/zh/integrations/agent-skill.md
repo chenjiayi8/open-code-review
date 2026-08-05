@@ -31,7 +31,7 @@ npx skills add alibaba/open-code-review --skill open-code-review
 
 > **前置条件：** 首次运行时 skill 会自行安装 `ocr` CLI
 > （通过 `npm install -g @alibaba-group/open-code-review`），前提是二进制不在
-> `PATH` 上——见[skill 做什么](#what-the-skill-does)。你**确实**需要预先认证本地 runner；skill 无法替你登录 Codex 或 Claude，会停下来询问。见[配置](../../configuration/)。
+> `PATH` 上——见[skill 做什么](#what-the-skill-does)。你**确实**需要预先认证本地 runner；skill 无法替你认证 Codex 或 Claude，会停下来询问。见[配置](../../configuration/)。
 
 ### 方式 2：手动复制（系统级）
 
@@ -54,7 +54,7 @@ SKILL.md 是一个 prompt：当调用方 agent 加载它时，由 agent 自身�
 2. **CLI 缺失则自动安装。** 若 `which ocr` 报告 "NOT INSTALLED"，agent 运行
    `npm install -g @alibaba-group/open-code-review` 并继续。不提示用户——这被视为
    常规设置步骤。
-3. **runner 未认证则停下询问。** 若 runner 预检或评审因 Codex/Claude 缺失或未登录而失败，agent *不会* 编造凭证。它会要求用户使用所选已安装 runner 的官方登录流程完成认证。
+3. **runner 未认证则停下询问。** 若 runner 预检或评审因 Codex/Claude 缺失或未认证而失败，agent *不会* 编造凭证。它会要求用户使用所选已安装 runner 支持的原生方式（已有登录或 API token）完成认证。
 4. **提取业务上下文。** 检查评审目标（commit、分支、工作副本）并生成一个简短的
    `--background` 字符串。
 5. **运行评审。** 调用
@@ -85,7 +85,7 @@ agent.run("Review my staged changes — focus on race conditions.")
 ```
 
 SDK 加载 SKILL.md prompt，由 agent 执行[skill 做什么](#what-the-skill-does)中
-所述工作流——包括 `npm install` 回退，以及所选本地 runner 缺失或未登录时提示认证的步骤。
+所述工作流——包括 `npm install` 回退，以及所选本地 runner 缺失或未认证时提示认证的步骤。
 
 ## 其他 agent 框架
 

@@ -27,7 +27,7 @@ command -v ocr
 ocr version
 ```
 
-OCR은 로컬 구독 runner를 사용합니다. Codex 또는 Claude CLI에 먼저 로그인하세요.
+OCR은 설치된 Codex 또는 Claude CLI를 로컬 runner로 호출합니다. 해당 CLI가 지원하는 네이티브 방식(기존 로그인 또는 API 토큰)으로 먼저 인증하세요. OCR은 runner credential을 설정하거나 저장하지 않습니다.
 
 ```bash
 codex login                 # or use the runner's supported API-token auth

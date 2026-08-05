@@ -127,7 +127,7 @@ schema 见[评审规则](../../review-rules/)。
 
 #### Runner timeout
 
-`--timeout <minutes>` 限制整体本地 runner 进程。大 PR 请用 review range、`--exclude` 或 path-limited scan 缩小 selection，避免过度消耗所选 runner 订阅 quota：
+`--timeout <minutes>` 限制整体本地 runner 进程。大 PR 请用 review range、`--exclude` 或 path-limited scan 缩小 selection，避免过度消耗所选 runner quota：
 
 ```yaml
 - name: Run OCR review
@@ -312,7 +312,7 @@ script:
 #### 避免每次推送都复审
 
 `only: [merge_requests]` 在**每次** MR 更新时触发，对长生命周期 MR 会消耗大量
-runner 订阅额度。GitLab 无原生“仅在创建时”事件，因此推荐模式是运行评审前检测已有
+runner 额度。GitLab 无原生“仅在创建时”事件，因此推荐模式是运行评审前检测已有
 OCR note，若有则跳过。把 `ocr review --runner codex` 调用替换为 Python wrapper：
 
 ```python
