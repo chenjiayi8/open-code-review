@@ -127,7 +127,7 @@ open-code-review/
 │   ├── stdout/                # 可静音的 stdout writer
 │   ├── suggestdiff/           # 建议 diff 渲染
 │   ├── telemetry/             # OpenTelemetry 配置 + 辅助
-│   ├── tool/                  # 工具注册表 + provider 实现
+│   ├── tool/                  # runner prompt + provider 实现
 │   └── viewer/                # 内嵌 HTTP UI
 ├── pages/                     # WebUI 营销页（独立 React app）
 ├── plugins/                   # Claude Code slash 命令

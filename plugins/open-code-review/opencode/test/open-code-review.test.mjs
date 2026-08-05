@@ -186,6 +186,32 @@ test("ocr_review passes suspicious-looking refs as one argv value without a shel
   )
 })
 
+
+
+test("ocr_review does not forward removed runner-control options", async () => {
+  await withFakeOcr(
+    "console.log(JSON.stringify({argv:process.argv.slice(2)}))",
+    async (worktree) => {
+      const { hooks } = await loadPlugin(worktree)
+      const output = await hooks.tool.ocr_review.execute(
+        {
+          runner: "codex",
+          concurrency: 2,
+          maxTools: 3,
+          runnerModel: "gpt-5",
+          timeoutMinutes: 4,
+        },
+        toolContext(worktree),
+      )
+      const argv = JSON.parse(output).argv
+      assert.equal(argv.includes("--concurrency"), false)
+      assert.equal(argv.includes("--max-tools"), false)
+      assert.deepEqual(argv.slice(argv.indexOf("--runner-model"), argv.indexOf("--runner-model") + 2), ["--runner-model", "gpt-5"])
+      assert.deepEqual(argv.slice(argv.indexOf("--timeout"), argv.indexOf("--timeout") + 2), ["--timeout", "4"])
+    },
+  )
+})
+
 test("ocr_review rejects incompatible review targets before starting OCR", async () => {
   await withTemporaryDirectory(async (worktree) => {
     const { hooks } = await loadPlugin(worktree)

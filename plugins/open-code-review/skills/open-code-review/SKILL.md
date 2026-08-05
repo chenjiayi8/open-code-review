@@ -70,7 +70,7 @@ ocr review --runner codex --audience agent --background "business context here" 
 - **Specific commit**: use `--commit` or `-c` to review a single commit against its parent
 - **Branch comparison**: use `--from <ref>` and `--to <ref>` to review diff between two refs
 - **Timeout**: default timeout is 10 minutes per file; adjust with `--timeout <minutes>`
-- **Concurrency**: default concurrency is 8 file workers; reduce with `--concurrency <n>` if rate limits are hit
+- **Timeout**: use `--timeout <minutes>` to bound the overall local runner process; use `--runner-model <name>` only for a per-run model hint
 - **Preview mode**: use `--preview` or `-p` to preview which files will be reviewed without running the LLM
 - **Installation**: if `ocr` command is not found, install it by running `npm i -g @alibaba-group/open-code-review`
 

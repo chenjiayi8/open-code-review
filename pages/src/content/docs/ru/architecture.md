@@ -14,10 +14,10 @@ sidebar:
 ```mermaid
 flowchart TD
     A["<b>ocr review</b>"]
-    B["<b>bootstrap</b><br/><span style='font-size:0.85em'>Select local runner (--runner codex/claude)<br/>Load template, tool registry, system rules</span>"]
+    B["<b>bootstrap</b><br/><span style='font-size:0.85em'>Select local runner (--runner codex/claude)<br/>Load runner prompt schema and system rules</span>"]
     C["<b>diff provider</b><br/><span style='font-size:0.85em'>git diff / ls-files / show — produce []model.Diff<br/>Modes: Workspace · Commit · Range</span>"]
     D["<b>filter & rules</b><br/><span style='font-size:0.85em'>5-gate filter (preview.go) — drop binaries,<br/>excluded paths, unsupported extensions. Pick rule per file.</span>"]
-    E["<b>subtask dispatch</b><br/><span style='font-size:0.85em'>For every diff in parallel (concurrency=N):<br/>Plan phase (optional) → Main loop → Comments</span>"]
+    E["<b>local runner invocation</b><br/><span style='font-size:0.85em'>Single read-only runner process:<br/>Review selected manifest → Structured JSON findings</span>"]
     F["<b>output writer</b><br/><span style='font-size:0.85em'>Synchronous line-resolution & review-filter; renders text<br/>or JSON depending on --format / --audience.</span>"]
 
     A --> B --> C --> D --> E --> F
@@ -101,7 +101,6 @@ default_path    — совпадение со встроенным шаблон�
 
 Для каждого файла, прошедшего фильтрацию, OCR запускает субагента. Каждый
 субагент выполняется в отдельной горутине, число которых ограничено
-`--concurrency` (по умолчанию **8**), и имеет собственный буфер сообщений LLM.
 
 Подзадача включает до **двух этапов**:
 
@@ -133,7 +132,6 @@ if changeLines < threshold { skip plan }
 перечень приведён в разделе [Инструменты](../tools/).
 
 ```
-loop up to MAX_TOOL_REQUEST_TIMES (default 30):
     response = llm.complete(messages, tools)
     if response.toolCalls is empty:
         nudge model with "You did not successfully call any tools.
@@ -147,7 +145,6 @@ loop up to MAX_TOOL_REQUEST_TIMES (default 30):
 У цикла есть пять условий завершения:
 
 1. Был вызван `task_done`.
-2. Исчерпано число `MAX_TOOL_REQUEST_TIMES`.
 3. В трёх последовательных раундах не получено допустимых результатов
    инструментов (`maxConsecutiveEmptyRounds = 3`).
 4. Контекст отменён.
@@ -305,7 +302,6 @@ if countMessagesTokens(messages) > tokenLimit {
 Сам шаблон нельзя переопределить через CLI: чтобы изменить промпты,
 отредактируйте
 [`task_template.json`](https://github.com/alibaba/open-code-review/blob/main/internal/config/template/task_template.json)
-и заново соберите проект. Флаг `--tools` переопределяет *реестр инструментов*
 (заменяет JSON, используемый `internal/config/toolsconfig`), а не шаблон. См.
 раздел [Инструменты](../tools/#customizing-tools).
 

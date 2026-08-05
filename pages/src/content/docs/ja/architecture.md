@@ -11,10 +11,10 @@ sidebar:
 ```mermaid
 flowchart TD
     A["<b>ocr review</b>"]
-    B["<b>bootstrap</b><br/><span style='font-size:0.85em'>Select local runner (--runner codex/claude)<br/>Load template, tool registry, system rules</span>"]
+    B["<b>bootstrap</b><br/><span style='font-size:0.85em'>Select local runner (--runner codex/claude)<br/>Load runner prompt schema and system rules</span>"]
     C["<b>diff provider</b><br/><span style='font-size:0.85em'>git diff / ls-files / show — produce []model.Diff<br/>Modes: Workspace · Commit · Range</span>"]
     D["<b>filter & rules</b><br/><span style='font-size:0.85em'>5-gate filter (preview.go) — drop binaries,<br/>excluded paths, unsupported extensions. Pick rule per file.</span>"]
-    E["<b>subtask dispatch</b><br/><span style='font-size:0.85em'>For every diff in parallel (concurrency=N):<br/>Plan phase (optional) → Main loop → Comments</span>"]
+    E["<b>local runner invocation</b><br/><span style='font-size:0.85em'>Single read-only runner process:<br/>Review selected manifest → Structured JSON findings</span>"]
     F["<b>output writer</b><br/><span style='font-size:0.85em'>Synchronous line-resolution & review-filter; renders text<br/>or JSON depending on --format / --audience.</span>"]
 
     A --> B --> C --> D --> E --> F
@@ -61,7 +61,6 @@ default_path    — matched a built-in test-file exclude pattern
 
 ## ファイルごとのサブタスク: plan + main
 
-フィルタリングを通過した各ファイルについて、OCR はサブエージェントを起動します。各サブエージェントは自身の goroutine 内で実行され、`--concurrency`（デフォルト **8**）によって制限され、独立した LLM メッセージバッファを持ちます。
 
 1 つのサブタスクは最大**2 つの段階**を持ちます:
 
@@ -80,7 +79,6 @@ if changeLines < threshold { skip plan }
 main ループは `MAIN_TASK` prompt を組み立て、モデルとツール呼び出しの対話を展開します。完全なツールセットは、plan 段階のツールに **`task_done`**、**`code_comment`**、**`file_read`** を加えたものです。完全な一覧は[ツール](../tools/)を参照してください。
 
 ```
-loop up to MAX_TOOL_REQUEST_TIMES (default 30):
     response = llm.complete(messages, tools)
     if response.toolCalls is empty:
         nudge model with "You did not successfully call any tools.
@@ -94,7 +92,6 @@ loop up to MAX_TOOL_REQUEST_TIMES (default 30):
 ループには 5 つの終了条件があります:
 
 1. `task_done` が呼び出された。
-2. `MAX_TOOL_REQUEST_TIMES` を使い切った。
 3. 有効なツール結果が 3 ラウンド連続で生成されなかった（`maxConsecutiveEmptyRounds = 3`）。
 4. context がキャンセルされた。
 5. `addNextMessage` が false を返した。圧縮してもメッセージバッファを警告しきい値以下に戻せなかった場合です。
@@ -202,7 +199,7 @@ if countMessagesTokens(messages) > tokenLimit {
 | `{{path}}` | ファイルパス。`REVIEW_FILTER_TASK` に使用されます。 |
 | `{{comments}}` | 蓄積されたコメント（JSON）。`REVIEW_FILTER_TASK` に使用されます。 |
 
-プレースホルダーの置換は [`agent.go`](https://github.com/alibaba/open-code-review/blob/main/internal/agent/agent.go) にあります。テンプレート自体は CLI では上書きできません。prompt を変更するには、[`task_template.json`](https://github.com/alibaba/open-code-review/blob/main/internal/config/template/task_template.json) を編集して再ビルドする必要があります。`--tools` 引数は*ツールレジストリ*の上書きです（`internal/config/toolsconfig` が消費する JSON を置き換えます）。テンプレートの上書きではありません。[ツール](../tools/#customizing-tools)を参照してください。
+runner prompt と JSON schema は local runner 実行パスに組み込まれています。CLI フラグで tool set を置き換えることはできません。prompt を変更するにはソースを編集して OCR を再ビルドしてください。
 
 > **プレースホルダー構文についての注意。** 上記のプレースホルダーはすべて二重波括弧 `{{…}}` 構文を使用します。*ただし* `RE_LOCATION_TASK` は例外で、単一波括弧の `{diff}`、`{existing_code}`、`{suggestion_content}` を置換します（`internal/diff/relocation.go` を参照）。
 
@@ -244,7 +241,7 @@ if countMessagesTokens(messages) > tokenLimit {
 | ファイルフィルタリング / プレビュー | `internal/agent/preview.go` |
 | diff の読み込み（Git モード） | `internal/diff/git.go` |
 | ルール解決チェーン | `internal/config/rules/system_rules.go` |
-| ツールレジストリと実装 | `internal/tool/` |
+| runner promptと実装 | `internal/tool/` |
 | LLM エンドポイントリゾルバ | `internal/llm/resolver.go` |
 | セッション JSONL ライター | `internal/session/persist.go` |
 | Web ビューア | `internal/viewer/server.go` |

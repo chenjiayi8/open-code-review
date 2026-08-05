@@ -135,7 +135,7 @@ schema 见[评审规则](../../review-rules/)。
     BASE_REF: ${{ github.base_ref }}
     HEAD_REF: ${{ github.head_ref }}
   run: |
-    ocr review --runner codex --concurrency 5 \
+    ocr review --runner codex \
       --from "origin/$BASE_REF" \
       --to "origin/$HEAD_REF"
 ```
@@ -290,12 +290,12 @@ script:
 #### 自定义规则与并发
 
 与 GitHub Actions 配方相同的参数——`--rule` 传项目专属规则文件，
-`--concurrency` 限制并行子 agent（默认 8）：
+`--timeout` bounds the overall local runner process:
 
 ```yaml
 script:
   - |
-    ocr review --runner codex --rule ./my-rules.json --concurrency 5 \
+    ocr review --runner codex --rule ./my-rules.json \
       --from "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" \
       --to "${CI_COMMIT_SHA}"
 ```

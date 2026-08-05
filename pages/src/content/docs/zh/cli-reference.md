@@ -45,7 +45,7 @@ ocr review --runner codex --runner-model gpt-5-codex --format json
 ocr review --preview
 ```
 
-常用参数包括 `--repo`、`--from`、`--to`、`--commit`、`--resume`、`--format`、`--audience`、`--background`、`--background-file`、`--concurrency`、`--timeout`、`--rule`、`--exclude`、`--max-tools`、`--max-git-procs` 与 `--tools`。
+常用参数包括 `--repo`、`--runner`、`--runner-model`、`--from`、`--to`、`--commit`、`--resume`、`--format`、`--audience`、`--background`、`--background-file`、`--timeout`、`--rule`、`--exclude` 与 `--max-git-procs`。
 
 ## `ocr scan` 示例
 

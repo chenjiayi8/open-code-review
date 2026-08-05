@@ -12,10 +12,10 @@ sidebar:
 ```mermaid
 flowchart TD
     A["<b>ocr review</b>"]
-    B["<b>bootstrap</b><br/><span style='font-size:0.85em'>Select local runner (--runner codex/claude)<br/>Load template, tool registry, system rules</span>"]
+    B["<b>bootstrap</b><br/><span style='font-size:0.85em'>Select local runner (--runner codex/claude)<br/>Load runner prompt schema and system rules</span>"]
     C["<b>diff provider</b><br/><span style='font-size:0.85em'>git diff / ls-files / show — produce []model.Diff<br/>Modes: Workspace · Commit · Range</span>"]
     D["<b>filter & rules</b><br/><span style='font-size:0.85em'>5-gate filter (preview.go) — drop binaries,<br/>excluded paths, unsupported extensions. Pick rule per file.</span>"]
-    E["<b>subtask dispatch</b><br/><span style='font-size:0.85em'>For every diff in parallel (concurrency=N):<br/>Plan phase (optional) → Main loop → Comments</span>"]
+    E["<b>local runner invocation</b><br/><span style='font-size:0.85em'>Single read-only runner process:<br/>Review selected manifest → Structured JSON findings</span>"]
     F["<b>output writer</b><br/><span style='font-size:0.85em'>Synchronous line-resolution & review-filter; renders text<br/>or JSON depending on --format / --audience.</span>"]
 
     A --> B --> C --> D --> E --> F
@@ -80,7 +80,6 @@ default_path    — matched a built-in test-file exclude pattern
 ## per-file 子任务：plan + main
 
 对每个通过过滤的文件，OCR 启动一个子 agent。每个子 agent 在自己的 goroutine
-中运行，受 `--concurrency`（默认 **8**）约束，并有独立的 LLM 消息缓冲区。
 
 一个子任务最多有**两个阶段**：
 
@@ -107,7 +106,6 @@ plan 阶段工具基础上加 **`task_done`**、**`code_comment`** 和
 **`file_read`**——完整清单见[工具](../tools/)。
 
 ```
-loop up to MAX_TOOL_REQUEST_TIMES (default 30):
     response = llm.complete(messages, tools)
     if response.toolCalls is empty:
         nudge model with "You did not successfully call any tools.
@@ -121,7 +119,6 @@ loop up to MAX_TOOL_REQUEST_TIMES (default 30):
 循环有五个退出条件：
 
 1. 调用了 `task_done`。
-2. `MAX_TOOL_REQUEST_TIMES` 耗尽。
 3. 连续 3 轮未产生有效工具结果（`maxConsecutiveEmptyRounds = 3`）。
 4. context 被取消。
 5. `addNextMessage` 返回 false——压缩无法把消息缓冲区压回警告阈值以下。
@@ -254,7 +251,6 @@ if countMessagesTokens(messages) > tokenLimit {
 [`agent.go`](https://github.com/alibaba/open-code-review/blob/main/internal/agent/agent.go)。
 模板本身不是 CLI 覆盖——要修改 prompt，你需要编辑
 [`task_template.json`](https://github.com/alibaba/open-code-review/blob/main/internal/config/template/task_template.json)
-并重新构建。`--tools` 参数是*工具注册表*覆盖（它替换 `internal/config/toolsconfig`
 消费的 JSON），不是模板覆盖——见[工具](../tools/#customizing-tools)。
 
 > **占位符语法注意。** 以上所有占位符都使用双花括号
@@ -314,7 +310,7 @@ metrics 记录——不作为 span。prompt 与响应内容**绝不**附加到�
 | 文件过滤 / 预览 | `internal/agent/preview.go` |
 | diff 加载（Git 模式） | `internal/diff/git.go` |
 | 规则解析链 | `internal/config/rules/system_rules.go` |
-| 工具注册表与实现 | `internal/tool/` |
+| runner prompt与实现 | `internal/tool/` |
 | LLM 端点解析器 | `internal/llm/resolver.go` |
 | 会话 JSONL 写入器 | `internal/session/persist.go` |
 | Web 查看器 | `internal/viewer/server.go` |

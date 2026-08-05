@@ -45,7 +45,7 @@ ocr review --runner codex --runner-model gpt-5-codex --format json
 ocr review --preview
 ```
 
-Common review flags include `--repo`, `--from`, `--to`, `--commit`, `--resume`, `--format`, `--audience`, `--background`, `--background-file`, `--concurrency`, `--timeout`, `--rule`, `--exclude`, `--max-tools`, `--max-git-procs`, and `--tools`.
+Common review flags include `--repo`, `--runner`, `--runner-model`, `--from`, `--to`, `--commit`, `--resume`, `--format`, `--audience`, `--background`, `--background-file`, `--timeout`, `--rule`, `--exclude`, and `--max-git-procs`.
 
 ## `ocr scan` examples
 

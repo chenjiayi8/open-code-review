@@ -45,7 +45,7 @@ ocr review --runner codex --runner-model gpt-5-codex --format json
 ocr review --preview
 ```
 
-主なフラグは `--repo`、`--from`、`--to`、`--commit`、`--resume`、`--format`、`--audience`、`--background`、`--background-file`、`--concurrency`、`--timeout`、`--rule`、`--exclude`、`--max-tools`、`--max-git-procs`、`--tools` です。
+主なフラグは `--repo`、`--runner`、`--runner-model`、`--from`、`--to`、`--commit`、`--resume`、`--format`、`--audience`、`--background`、`--background-file`、`--timeout`、`--rule`、`--exclude`、`--max-git-procs` です。
 
 ## `ocr scan` 例
 

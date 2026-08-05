@@ -127,7 +127,7 @@ open-code-review/
 │   ├── stdout/                # ミュート可能な stdout writer
 │   ├── suggestdiff/           # 提案 diff のレンダリング
 │   ├── telemetry/             # OpenTelemetry の設定 + ヘルパー
-│   ├── tool/                  # ツールレジストリ + provider の実装
+│   ├── tool/                  # runner prompt + provider の実装
 │   └── viewer/                # 埋め込み HTTP UI
 ├── pages/                     # WebUI マーケティングページ（独立した React app）
 ├── plugins/                   # Claude Code slash コマンド
