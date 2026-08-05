@@ -61,10 +61,9 @@ curl -o .github/workflows/ocr-review.yml \
 
 | Secret | 必須 | 説明 |
 |---|---|---|
-| `CODEX_AUTH` または `CLAUDE_AUTH` | はい | runner ログイン手順が使う CI secret。形式は Codex/Claude CLI と CI プラットフォームに依存します。 |
 | `GITHUB_TOKEN` | 自動 | PR review コメント投稿用に GitHub が提供します。 |
 
-OCR の前に runner 認証ステップを追加し、`--runner codex` または `--runner claude` で OCR を実行します。OCR 所有のモデルサービス認証情報変数は作成しません。
+OCR の前に、選択したインストール済み runner の公式にサポートされた CI 方式で認証するステップを追加し、`--runner codex` または `--runner claude` で OCR を実行します。OCR 独自の runner secret 名は作成しません。
 ### カスタマイズ
 
 以下はすべて、あなたがコピーしたばかりのワークフローファイル
@@ -239,10 +238,9 @@ include:
 
 | 変数 | 必須 | Masked | 説明 |
 |---|---|---|---|
-| `CODEX_AUTH` または `CLAUDE_AUTH` | はい | はい | runner ログイン手順が使う CI secret。形式は Codex/Claude CLI と CI プラットフォームに依存します。 |
 | `GITLAB_API_TOKEN` | いいえ | はい | コメント投稿用の project / personal / group access token。scope は `api`。任意です。fork MR では組み込みの `CI_JOB_TOKEN` にフォールバックできます。 |
 
-OCR の前に選択した runner を認証するパイプライン手順を追加し、`--runner codex` または `--runner claude` で OCR を呼び出します。OCR 所有のモデルサービス認証情報変数は作成しません。
+OCR の前に、選択したインストール済み runner の公式にサポートされた CI 方式で認証するパイプライン手順を追加し、`--runner codex` または `--runner claude` で OCR を呼び出します。OCR 独自の runner secret 名は作成しません。
 
 > token の**名前**が MR ディスカッションの横に表示されます。token を `OpenCodeReview Bot` と命名すれば、追加設定なしでレビューディスカッションにブランド名を付けられます——[サービスアカウント名義で投稿する](#post-under-a-service-account-identity)に記載のより永続的なサービスアカウント設定が不要なときに便利です。
 

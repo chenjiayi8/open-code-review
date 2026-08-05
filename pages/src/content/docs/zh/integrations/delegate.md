@@ -4,7 +4,7 @@ sidebar:
   order: 5
 ---
 
-OCR 负责确定性工程（文件筛选、规则解析），宿主 Agent 使用自身的 LLM 能力执行实际的代码审查。OCR 端无需配置 LLM。
+OCR 负责确定性工程（文件筛选、规则解析），宿主 Agent 使用自身的模型能力执行实际的代码审查。OCR 端无需认证 runner。
 
 ## 何时使用委托模式
 
@@ -24,7 +24,7 @@ OCR 负责确定性工程（文件筛选、规则解析），宿主 Agent 使用
 which ocr || npm install -g @alibaba-group/open-code-review
 ```
 
-无需配置 LLM（`ocr config set …` 或环境变量）— 委托模式在 OCR 端不调用任何 LLM。
+无需 OCR 端 runner 认证——委托模式不会通过 OCR 调用 Codex 或 Claude。
 
 ## 安装 Skill / Command
 

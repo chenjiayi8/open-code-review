@@ -52,7 +52,7 @@ curl -o ~/.claude/commands/open-code-review.md \
 
 コマンドファイルは単一の frontmatter フィールドを持つ純粋な markdown です——Claude Code 固有の内容は一切含まれていません。あなたの agent が同様の **command** 規約（ディレクトリから呼び出し可能なコマンドとしてロードされる markdown prompt）をサポートしている場合、上記のファイルコピー方法がインストール経路になります。`open-code-review.md` を agent がコマンドを読み込むディレクトリに配置し、agent のコマンド呼び出し方法に従って呼び出してください。prompt 本文は agent に依存しません——モデルに対して、どの `ocr` 引数を選び、出力をどのように分類するかを伝えるだけです。
 
-> **ヒント：** LLM を自分で設定したくない場合は、[委任モード](../delegate/)をお試しください——ホスト agent（Claude Code）がモデルを提供するため、別途 LLM を設定する必要がありません。
+> **ヒント：** OCR に別 runner を呼び出させたくない場合は、[委任モード](../delegate/)をお試しください——ホスト agent（Claude Code）がモデルを提供するため、OCR 側の runner 認証は不要です。
 
 ## 使い方
 

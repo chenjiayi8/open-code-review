@@ -74,10 +74,9 @@ curl -o .github/workflows/ocr-review.yml \
 
 | Secret | 必需 | 说明 |
 |---|---|---|
-| `CODEX_AUTH` 或 `CLAUDE_AUTH` | 是 | 供 runner 登录步骤使用的 CI secret；具体格式取决于 Codex/Claude CLI 与 CI 平台。 |
 | `GITHUB_TOKEN` | 自动 | GitHub 自动提供，用于回贴 PR review 评论。 |
 
-在运行 OCR 前添加 runner 认证步骤，然后用 `--runner codex` 或 `--runner claude` 调用 OCR。不要创建由 OCR 拥有的模型服务凭据变量。
+在运行 OCR 前添加步骤，使用所选已安装 runner 的官方 CI 支持机制完成认证，然后用 `--runner codex` 或 `--runner claude` 调用 OCR。不要发明 OCR 自有的 runner secret 名称。
 
 ### 定制
 
@@ -259,10 +258,9 @@ include:
 
 | 变量 | 必需 | Masked | 说明 |
 |---|---|---|---|
-| `CODEX_AUTH` 或 `CLAUDE_AUTH` | 是 | 是 | runner 登录步骤使用的 CI secret；具体格式取决于 Codex/Claude CLI 与 CI 平台。 |
 | `GITLAB_API_TOKEN` | 否 | 是 | 用于发布评论的 project / personal / group access token，scope 为 `api`。可选；fork MR 可回退使用内置 `CI_JOB_TOKEN`。 |
 
-在 OCR 前添加认证所选 runner 的 pipeline 步骤，然后用 `--runner codex` 或 `--runner claude` 调用 OCR。不要创建由 OCR 拥有的模型服务凭据变量。
+在 OCR 前添加 pipeline 步骤，使用所选已安装 runner 的官方 CI 支持机制完成认证，然后用 `--runner codex` 或 `--runner claude` 调用 OCR。不要发明 OCR 自有的 runner secret 名称。
 
 > **快速 bot 命名提示。** 对 Project Access Token 和 Group Access Token，
 > token 的**名字**会出现在 MR 讨论旁。把 token 命名为 `OpenCodeReview Bot`，

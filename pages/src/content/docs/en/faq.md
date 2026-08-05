@@ -21,7 +21,7 @@ ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```
 
-If OCR reports that runner subscription authentication is required, the selected runner is missing, logged out, or unavailable in the current environment. Install/log in to the runner and retry. Do not add OCR endpoint, token, or model variables; OCR does not own those credentials.
+If OCR reports that runner subscription authentication is required, the selected runner is missing, logged out, or unavailable in the current environment. Install/log in to the runner and retry. Do not invent OCR-owned runner credential variables; authenticate the selected runner with its official login flow.
 
 ### Preview works but review fails
 
@@ -33,7 +33,7 @@ A login, subscription, quota, or permission error comes from the selected Codex 
 
 ### `not a git repository`
 
-`ocr review` runs `git diff` (and `git ls-files` for untracked files)
+`ocr review --runner codex` runs `git diff` (and `git ls-files` for untracked files)
 against the current directory. If you're not inside a Git working tree,
 it exits early. Either `cd` into a repo, or pass `--repo /path/to/repo`.
 
@@ -223,7 +223,7 @@ Two usual suspects:
 Make sure you're not seeing **stderr**. Progress messages occasionally
 go to stderr (warnings, errors). The clean stdout that `--audience
 agent` guarantees is *parser-friendly* — to suppress everything,
-redirect: `ocr review --audience agent 2>/dev/null`.
+redirect: `ocr review --runner codex --audience agent 2>/dev/null` after authenticating the selected runner.
 
 ### JSON output is `{ "files_reviewed": 0, "comments": [] }`
 
@@ -252,7 +252,8 @@ Enable telemetry:
 ```bash
 ocr config set telemetry.enabled true
 ocr config set telemetry.exporter console
-ocr review
+codex login                 # or: claude auth login --claudeai
+ocr review --runner codex
 ```
 
 LLM calls don't get their own spans — they're recorded as metrics
@@ -290,8 +291,7 @@ Common levers:
 
 ### Does OCR send my code anywhere?
 
-OCR sends your **diffs** (and optional read-tool snippets) to whatever
-LLM endpoint you configured. Nothing else leaves your machine —
+OCR sends your **diffs** (and optional read-tool snippets) through the selected authenticated local runner. Nothing else leaves your machine —
 session JSONLs and rule files are local-only.
 
 If telemetry is enabled, the `content_logging` flag is plumbed through
@@ -346,7 +346,7 @@ and per-user rules.
 
 ## See Also
 
-- [Configuration](../configuration/) — LLM endpoint resolution and config keys.
+- [Configuration](../configuration/) — runner selection and config keys.
 - [Review Rules](../review-rules/) — the file filter and rule resolution chain.
 - [Session Viewer](../viewer/) — inspect past review sessions.
 - [Telemetry](../telemetry/) — token usage and LLM metrics.

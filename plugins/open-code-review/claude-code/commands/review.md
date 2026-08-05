@@ -11,9 +11,9 @@ Invoke the professional code review Agent CLI tool OpenCodeReview (OCR) to revie
 Run the OCR command:
 
 ```bash
-ocr review --audience agent [user-args]
+ocr review --runner codex --audience agent [user-args]
 ```
-- Default (no user arguments): reviews staged, unstaged, and untracked changes (workspace mode).
+- Default (no user arguments): reviews staged, unstaged, and untracked changes (workspace mode) using the authenticated Codex runner. Use `--runner claude` instead if Claude is the selected authenticated runner.
 - If the user provides `--commit` or `--c`: pass through as-is.
 - If the user provides `--from` and `--to`: pass through as-is.
 - (Optional) Provide `--background "requirement context"` to review whether the requirements are correctly implemented.

@@ -5,16 +5,16 @@ sidebar:
 ---
 
 OCR handles deterministic engineering (file selection, rule resolution)
-while the host agent performs the actual code review using its own LLM
-capabilities. No LLM endpoint is required on the OCR side.
+while the host agent performs the actual code review using its own model
+capabilities. No OCR-side runner authentication is required.
 
 ## When to use delegation mode
 
 Delegation mode is designed for subscription-based AI coding agents —
 such as Claude Code, Codex, Cursor, Open Code, Qoder, etc. — where you
-already have an LLM subscription bundled with the host agent. Instead
-of configuring a separate model endpoint for OCR, you reuse the host
-agent's existing subscription quota to perform the review.
+already have a model subscription bundled with the host agent. Instead
+of authenticating a separate OCR runner, you reuse the host agent's
+existing subscription quota to perform the review.
 
 Use delegation mode when:
 
@@ -35,8 +35,8 @@ The `ocr` CLI must be installed:
 which ocr || npm install -g @alibaba-group/open-code-review
 ```
 
-No LLM configuration (`ocr config set …` or environment variables) is
-needed — delegation mode never calls an LLM on the OCR side.
+No OCR-side runner authentication is needed — delegation mode never
+invokes Codex or Claude through OCR.
 
 ## Install the skill / command
 

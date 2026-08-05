@@ -38,7 +38,7 @@
 
 Open Code Review 是一款 AI 驱动的代码审查 CLI 工具。它的前身是阿里集团内部官方 AI 代码审查助手，过去两年在内部服务了数万开发者，识别了数百万个代码缺陷。经过大规模充分验证后，我们将其孵化为开源项目，对社区开放。只需登录本地订阅 runner 即可使用。
 
-它读取 Git diff，通过具备工具调用能力的 Agent 将变更文件发送至可配置的 LLM，生成具有行级精度的结构化审查意见。Agent 可以读取完整文件内容、搜索代码库、检查其他变更文件以获取上下文，从而进行深度审查——而非仅停留在表面的 diff 反馈。除了 diff 审查，`ocr scan` 可以审查整个文件，适用于审计不熟悉的代码库或没有有意义 diff 的目录。
+它读取 Git diff，通过具备工具调用能力的 Agent 将变更文件交给所选且已认证的本地 runner，生成具有行级精度的结构化审查意见。Agent 可以读取完整文件内容、搜索代码库、检查其他变更文件以获取上下文，从而进行深度审查——而非仅停留在表面的 diff 反馈。除了 diff 审查，`ocr scan` 可以审查整个文件，适用于审计不熟悉的代码库或没有有意义 diff 的目录。
 
 访问[官方网站](https://open-codereview.ai)了解更多信息。
 
@@ -150,7 +150,7 @@ ocr scan --runner claude --path internal/agent    # 扫描指定目录或文件
 ocr scan --runner claude --resume <session-id>   # 恢复中断的全量文件扫描
 
 # 委托模式 — 让你的 AI 编程 agent 自己执行评审
-# OCR 负责文件选择和规则解析；无需配置 LLM
+# OCR 负责文件选择和规则解析；无需设置 OCR runner
 ocr delegate preview
 ocr delegate rule src/main.go src/handler.go
 ```
@@ -171,8 +171,8 @@ ocr delegate rule src/main.go src/handler.go
   - [Cursor](plugins/open-code-review/README.md#cursor) —— 安装包含可移植评审 Skill 的插件
   - [OpenCode](plugins/open-code-review/opencode/README.md) —— 安装原生评审工具和斜杠命令
   - [兼容 Skill 的 Agent](https://open-codereview.ai/docs/agent-skill) —— 安装可移植的 Agent Skill
-- 评审执行模式 —— 完成集成后，选择由哪个 LLM 执行评审
-  - [默认模式（OCR 驱动）](https://open-codereview.ai/docs/configuration) —— OCR 使用其已配置的 LLM 执行评审
+- 评审执行模式 —— 完成集成后，选择评审的执行方式
+  - [本地 runner 模式](https://open-codereview.ai/docs/configuration) —— OCR 通过已认证的 Codex 或 Claude 订阅 runner 执行评审
   - [委托模式](https://open-codereview.ai/docs/delegate) —— 编程 Agent 直接执行评审；无需 OCR runner 配置
 - [CI/CD 集成](https://open-codereview.ai/docs/cicd) —— 支持 GitHub Actions、GitLab CI、GitFlic CI、Gerrit 集成
 - [会话查看器](https://open-codereview.ai/docs/viewer) —— 在浏览器中浏览和回放评审会话

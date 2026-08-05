@@ -14,7 +14,7 @@ the source code with confidence.
 ```mermaid
 flowchart TD
     A["<b>ocr review</b>"]
-    B["<b>bootstrap</b><br/><span style='font-size:0.85em'>Resolve LLM endpoint (config → env → rc files)<br/>Load template, tool registry, system rules</span>"]
+    B["<b>bootstrap</b><br/><span style='font-size:0.85em'>Select local runner (--runner codex/claude)<br/>Load template, tool registry, system rules</span>"]
     C["<b>diff provider</b><br/><span style='font-size:0.85em'>git diff / ls-files / show — produce []model.Diff<br/>Modes: Workspace · Commit · Range</span>"]
     D["<b>filter & rules</b><br/><span style='font-size:0.85em'>5-gate filter (preview.go) — drop binaries,<br/>excluded paths, unsupported extensions. Pick rule per file.</span>"]
     E["<b>subtask dispatch</b><br/><span style='font-size:0.85em'>For every diff in parallel (concurrency=N):<br/>Plan phase (optional) → Main loop → Comments</span>"]
@@ -361,7 +361,7 @@ If you want to read along:
 | Diff loading (Git modes) | `internal/diff/git.go` |
 | Rule resolution chain | `internal/config/rules/system_rules.go` |
 | Tool registry & impls | `internal/tool/` |
-| LLM endpoint resolver | `internal/llm/resolver.go` |
+| Runner adapters | `internal/runner/` |
 | Session JSONL writer | `internal/session/persist.go` |
 | Web viewer | `internal/viewer/server.go` |
 
