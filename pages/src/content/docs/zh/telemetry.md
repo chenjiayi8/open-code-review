@@ -206,9 +206,9 @@ span 以该 service name 出现在 APM 下；LLM metric 带上述标签出现在
 ```yaml
 - name: Code review
   env:
-    OCR_LLM_URL: ${{ secrets.OCR_LLM_URL }}
-    OCR_LLM_TOKEN: ${{ secrets.OCR_LLM_TOKEN }}
-    OCR_LLM_MODEL: claude-opus-4-6
+    RUNNER_AUTH: ${{ secrets.RUNNER_AUTH }}
+    RUNNER_AUTH: ${{ secrets.RUNNER_AUTH }}
+    RUNNER_MODEL: claude-opus-4-6
     OCR_ENABLE_TELEMETRY: "1"
     OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_COLLECTOR_URL }}
     OTEL_SERVICE_NAME: open-code-review-ci

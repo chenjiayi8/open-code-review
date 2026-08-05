@@ -11,10 +11,10 @@ the steps you ran and the full output.
 
 ## Configuration & startup
 
-### `no valid LLM endpoint configured`
+### `runner subscription authentication required`
 
 ```
-no valid LLM endpoint configured; one of OCR_LLM_URL/OCR_LLM_TOKEN/OCR_LLM_MODEL,
+runner subscription authentication required; run codex login or claude auth login --claudeai,
 ~/.opencodereview/config.json, or ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN/
 ANTHROPIC_MODEL must be set
 ```
@@ -24,20 +24,20 @@ and didn't find a complete `(URL, token, model)` triple. Either:
 
 - Run `ocr config set llm.url …` / `llm.auth_token …` / `llm.model …`
   to populate `~/.opencodereview/config.json`, **or**
-- Export `OCR_LLM_URL` / `OCR_LLM_TOKEN` / `OCR_LLM_MODEL`, **or**
+- Export `RUNNER_AUTH` / `RUNNER_AUTH` / `RUNNER_MODEL`, **or**
 - Export `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` /
   `ANTHROPIC_MODEL` if you already use Claude Code.
 
-Then `ocr llm test` to verify connectivity before retrying the review.
+Then `ocr review --preview` to verify connectivity before retrying the review.
 
-### `ocr llm test` shows the wrong source
+### `ocr review --preview` shows the wrong source
 
 OCR uses the **first** complete triple, not the last. So if your
 config file has all three llm.* keys, env vars are ignored. To make
 env wins, either delete the config keys (`rm` the file or unset by
 hand) or use `ocr config set` to switch to the new values.
 
-### 401 / 403 from `ocr llm test`
+### 401 / 403 from `ocr review --preview`
 
 The token is missing scope, expired, or wrong vendor. Anthropic and
 OpenAI use different auth headers and different URL shapes — make sure

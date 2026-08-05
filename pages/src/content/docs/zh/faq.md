@@ -9,10 +9,10 @@ sidebar:
 
 ## 配置与启动
 
-### `no valid LLM endpoint configured`
+### `runner subscription authentication required`
 
 ```
-no valid LLM endpoint configured; one of OCR_LLM_URL/OCR_LLM_TOKEN/OCR_LLM_MODEL,
+runner subscription authentication required; run codex login or claude auth login --claudeai,
 ~/.opencodereview/config.json, or ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN/
 ANTHROPIC_MODEL must be set
 ```
@@ -22,19 +22,19 @@ OCR 走完了整条端点解析链（[配置](../configuration/#复用已有的�
 
 - 运行 `ocr config set llm.url …` / `llm.auth_token …` / `llm.model …` 填充
   `~/.opencodereview/config.json`，**或**
-- 导出 `OCR_LLM_URL` / `OCR_LLM_TOKEN` / `OCR_LLM_MODEL`，**或**
+- 导出 `RUNNER_AUTH` / `RUNNER_AUTH` / `RUNNER_MODEL`，**或**
 - 若你已在用 Claude Code，导出 `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` /
   `ANTHROPIC_MODEL`。
 
-然后 `ocr llm test` 验证连通性再重试评审。
+然后 `ocr review --preview` 验证连通性再重试评审。
 
-### `ocr llm test` 显示错误的来源
+### `ocr review --preview` 显示错误的来源
 
 OCR 取**第一个**完整三元组，而非最后一个。因此若配置文件已有全部三个 llm.*
 key，环境变量会被忽略。要让环境变量生效，删除配置 key（删除文件或手动 unset）或
 用 `ocr config set` 切换到新值。
 
-### `ocr llm test` 返回 401 / 403
+### `ocr review --preview` 返回 401 / 403
 
 token 缺少 scope、已过期或厂商不匹配。Anthropic 与 OpenAI 用不同的 auth header 与
 URL 格式——确保 `llm.use_anthropic` 与你指向的 URL 相匹配：

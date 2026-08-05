@@ -36,7 +36,7 @@
 
 ## What is Open Code Review?
 
-Open Code Review is an AI-powered code review CLI tool. It originated as Alibaba Group's internal official AI code review assistant — over the past two years, it has served tens of thousands of developers and identified millions of code defects. After thorough validation at massive scale, we incubated it into an open source project for the community. Simply configure a model endpoint to get started.
+Open Code Review is an AI-powered code review CLI tool. It originated as Alibaba Group's internal official AI code review assistant — over the past two years, it has served tens of thousands of developers and identified millions of code defects. After thorough validation at massive scale, we incubated it into an open source project for the community. Simply authenticate a local subscription runner to get started.
 
 It reads Git diffs, sends changed files to a configurable LLM via an agent with tool-use capabilities, and generates structured review comments with line-level precision. The agent can read full file contents, search the codebase, inspect other changed files for context, and produce deep reviews — not just surface-level diff feedback. Beyond diff review, `ocr scan` reviews entire files for auditing unfamiliar codebases or directories that have no meaningful diff.
 
@@ -176,8 +176,8 @@ Full documentation lives at **[open-codereview.ai/docs](https://open-codereview.
   - [OpenCode](plugins/open-code-review/opencode/README.md) — install native review tools and slash commands
   - [Skill-compatible agents](https://open-codereview.ai/docs/agent-skill) — install the portable agent skill
 - Review Execution Modes — after integration, choose which LLM performs the review
-  - [Default (OCR-managed)](https://open-codereview.ai/docs/configuration) — OCR runs the review using its configured LLM
-  - [Delegation Mode](https://open-codereview.ai/docs/delegate) — your coding agent runs the review using its own LLM; no OCR API key required
+  - [Local runner mode](https://open-codereview.ai/docs/configuration) — OCR runs the review through your authenticated Codex or Claude subscription runner
+  - [Delegation Mode](https://open-codereview.ai/docs/delegate) — your coding agent runs the review directly; no OCR runner configuration required
 - [CI/CD Integration](https://open-codereview.ai/docs/cicd) — GitHub Actions, GitLab CI, GitFlic CI, and Gerrit integration
 - [Session Viewer](https://open-codereview.ai/docs/viewer) — browse and replay review sessions in browser
 - [Telemetry](https://open-codereview.ai/docs/telemetry) — OpenTelemetry integration for observability

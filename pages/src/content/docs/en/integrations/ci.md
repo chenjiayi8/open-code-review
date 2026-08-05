@@ -92,10 +92,10 @@ Set under **Settings → Secrets and variables → Actions**:
 
 | Secret | Required | Description |
 |---|---|---|
-| `OCR_LLM_URL` | Yes | LLM API endpoint (e.g. `https://api.openai.com/v1/chat/completions`). |
-| `OCR_LLM_AUTH_TOKEN` | Yes | Authentication token for the LLM API. This CI secret is passed to `ocr config set llm.auth_token`. (OCR's direct env var is `OCR_LLM_TOKEN`, not `OCR_LLM_AUTH_TOKEN`.) |
-| `OCR_LLM_MODEL` | No | Model name. No default — must be set explicitly. |
-| `OCR_LLM_USE_ANTHROPIC` | No | Set to `true` for Anthropic Claude models. |
+| `RUNNER_AUTH` | Yes | LLM API endpoint (e.g. `https://api.openai.com/v1/chat/completions`). |
+| `RUNNER_AUTH_TOKEN` | Yes | Authentication token for the LLM API. This CI secret is passed to `authenticate the selected runner`. (OCR's direct env var is `RUNNER_AUTH`, not `RUNNER_AUTH_TOKEN`.) |
+| `RUNNER_MODEL` | No | Model name. No default — must be set explicitly. |
+| `RUNNER_AUTH_MODE` | No | Set to `true` for Anthropic Claude models. |
 
 `GITHUB_TOKEN` is auto-provided; the workflow declares
 `pull-requests: write` so it can post review comments.
@@ -263,7 +263,7 @@ Reviews will now appear as posted by your app's name instead of
 | Symptom | Cause / Fix |
 |---|---|
 | `Cannot find merge-base` | The checkout step used a shallow clone, but range-mode review needs full history. The upstream workflow sets `fetch-depth: 0` on `actions/checkout` — preserve that setting if you edit the file. |
-| `Failed to parse OCR output` | `OCR_LLM_URL` or `OCR_LLM_AUTH_TOKEN` is missing or wrong. Re-check the values under *Settings → Secrets and variables → Actions*. |
+| `Failed to parse OCR output` | `RUNNER_AUTH` or `RUNNER_AUTH_TOKEN` is missing or wrong. Re-check the values under *Settings → Secrets and variables → Actions*. |
 | Review comments land on the wrong lines | Usually means the diff shifted between the moment the review started and when comments were posted. The posting script falls back to a plain issue comment in that case — no action needed. |
 
 > **Note.** The `OCR_DEBUG` env var is **not currently implemented**
@@ -314,9 +314,9 @@ Set under **Settings → CI/CD → Variables**:
 
 | Variable | Required | Masked | Description |
 |---|---|---|---|
-| `OCR_LLM_URL` | Yes | No | LLM API endpoint URL. |
-| `OCR_LLM_AUTH_TOKEN` | Yes | Yes | API authentication token. This CI variable is passed to `ocr config set llm.auth_token`. (OCR's direct env var is `OCR_LLM_TOKEN`, not `OCR_LLM_AUTH_TOKEN`.) |
-| `OCR_LLM_MODEL` | No | No | Model name. No default — must be set explicitly. |
+| `RUNNER_AUTH` | Yes | No | LLM API endpoint URL. |
+| `RUNNER_AUTH_TOKEN` | Yes | Yes | API authentication token. This CI variable is passed to `authenticate the selected runner`. (OCR's direct env var is `RUNNER_AUTH`, not `RUNNER_AUTH_TOKEN`.) |
+| `RUNNER_MODEL` | No | No | Model name. No default — must be set explicitly. |
 | `GITLAB_API_TOKEN` | No | Yes | Project / personal / group access token with `api` scope. Optional — the built-in `CI_JOB_TOKEN` is used as a fallback when this is absent (e.g. for fork MRs). A dedicated `GITLAB_API_TOKEN` is recommended for reliability. |
 
 > GitLab rejects variables shorter than 8 characters, so
@@ -454,7 +454,7 @@ of the user who originally created the token.
 |---|---|
 | `Cannot find merge-base` | The runner used a shallow clone. The upstream pipeline sets `GIT_DEPTH: 0` to force a full clone — preserve that setting if you edit the file. |
 | `API error 403` when posting | `GITLAB_API_TOKEN` is missing the `api` scope, isn't a member of the project, or — on self-hosted — was issued by a different instance. Reissue with `api` scope and re-add it under *Settings → CI/CD → Variables*. |
-| `Failed to parse OCR output` | `OCR_LLM_URL` or `OCR_LLM_AUTH_TOKEN` is wrong. Re-check the values under *Settings → CI/CD → Variables*. |
+| `Failed to parse OCR output` | `RUNNER_AUTH` or `RUNNER_AUTH_TOKEN` is wrong. Re-check the values under *Settings → CI/CD → Variables*. |
 | Inline comments land on the wrong lines | GitLab requires exact SHA matching for inline discussions; the posting script fetches `versions` metadata to get the right `base_sha` / `start_sha` / `head_sha`. If a finding still can't be anchored, it falls back to a plain MR note. |
 
 The pipeline writes raw review JSON to `/tmp/ocr-result.json` and
