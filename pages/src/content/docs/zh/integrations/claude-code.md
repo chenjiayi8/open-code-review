@@ -57,8 +57,8 @@ markdown prompt），上面的文件复制方法就是安装路径：把 `open-c
 放进你的 agent 读取命令的目录，按你的 agent 调用命令的方式调用它。prompt 正文
 与 agent 无关——它只告诉模型选哪些 `ocr` 参数以及如何分级输出。
 
-> **提示：** 如果不想自行配置 LLM，可以试试[委托模式](../delegate/)——它让宿主
-> agent（Claude Code）提供模型，无需额外的 LLM 配置。
+> **提示：** 如果不想让 OCR 调用单独的 runner，可以试试[委托模式](../delegate/)——它让宿主
+> agent（Claude Code）提供模型，无需 OCR 端 runner 认证。
 
 ## 使用
 

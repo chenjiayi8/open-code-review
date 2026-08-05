@@ -24,7 +24,7 @@ OCR が確定的エンジニアリング（ファイル選択、ルール解決�
 which ocr || npm install -g @alibaba-group/open-code-review
 ```
 
-LLM 設定（`ocr config set …` や環境変数）は不要です — デリゲーションモードは OCR 側で LLM を呼び出しません。
+OCR 側の runner 認証は不要です — デリゲーションモードは OCR 経由で Codex や Claude を呼び出しません。
 
 ## Skill / Command のインストール
 

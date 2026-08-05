@@ -175,6 +175,6 @@ OCR 永远不会写入 `~/.opencodereview/` 之外（除 NPM 临时下载二进�
 
 ## 另见
 
-- [快速开始](../quickstart/)——配置 LLM 并完成首次评审。
+- [快速开始](../quickstart/)——认证本地 runner 并完成首次评审。
 - [配置](../configuration/)——OCR 接受的每个环境变量与 config key。
 - [贡献](../contributing/)——从源码构建、跑测试并参与开发。

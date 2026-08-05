@@ -64,9 +64,9 @@ reads commands from, and invoke it the way your agent invokes
 commands. The prompt body is agent-agnostic — it just tells the model
 which `ocr` flags to pick and how to triage the output.
 
-> **Tip:** if you don't want to configure an LLM yourself, try
+> **Tip:** if you don't want OCR to invoke a separate runner, try
 > [Delegation Mode](../delegate/) — it lets the host agent (Claude Code)
-> supply the model, so no separate LLM setup is needed.
+> supply the model, so no OCR-side runner authentication is needed.
 
 ## Use
 

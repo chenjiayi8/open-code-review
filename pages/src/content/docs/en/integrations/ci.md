@@ -88,10 +88,9 @@ Set under **Settings → Secrets and variables → Actions**:
 
 | Secret | Required | Description |
 |---|---|---|
-| `CODEX_AUTH` or `CLAUDE_AUTH` | Yes | CI secret(s) used by your runner login step. The exact format depends on the Codex/Claude CLI and your CI platform. |
 | `GITHUB_TOKEN` | Auto | GitHub-provided token used to post PR review comments. |
 
-Add a workflow step before OCR that authenticates the selected runner, then invoke OCR with `--runner codex` or `--runner claude`. Do not create OCR-owned model-service credential variables.
+Add a workflow step before OCR that authenticates the selected installed runner using that runner's official supported CI mechanism, then invoke OCR with `--runner codex` or `--runner claude`. Do not invent OCR-owned runner secret names.
 ### Customization
 
 All of the following are edits to the workflow file you just copied
@@ -285,10 +284,9 @@ Set under **Settings → CI/CD → Variables**:
 
 | Variable | Required | Masked | Description |
 |---|---|---|---|
-| `CODEX_AUTH` or `CLAUDE_AUTH` | Yes | Yes | CI secret(s) used by your runner login step. The exact format depends on the Codex/Claude CLI and your CI platform. |
 | `GITLAB_API_TOKEN` | No | Yes | Project / personal / group access token with `api` scope for posting comments. Optional — the built-in `CI_JOB_TOKEN` is used as a fallback for fork MRs. |
 
-Add a pipeline step before OCR that authenticates the selected runner, then invoke OCR with `--runner codex` or `--runner claude`. Do not create OCR-owned model-service credential variables.
+Add a pipeline step before OCR that authenticates the selected installed runner using that runner's official supported CI mechanism, then invoke OCR with `--runner codex` or `--runner claude`. Do not invent OCR-owned runner secret names.
 
 > **Quick bot-naming tip.** For Project Access Tokens and Group
 > Access Tokens, the token's **name** is what appears next to MR

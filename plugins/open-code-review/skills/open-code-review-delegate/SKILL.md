@@ -1,16 +1,16 @@
 ---
 name: open-code-review-delegate
 description: >
-  Delegation mode for open-code-review (OCR). Instead of OCR calling an LLM
-  endpoint, this skill instructs the host agent to perform the code review
+  Delegation mode for open-code-review (OCR). Instead of OCR invoking a local runner,
+  this skill instructs the host agent to perform the code review
   itself, using OCR only for deterministic engineering: file selection and
   rule resolution. Use when the host agent should drive the review with its
-  own LLM capabilities.
+  own model capabilities.
 license: Apache-2.0
 compatibility: >
   Requires the `ocr` CLI installed (via `npm install -g
   @alibaba-group/open-code-review` or GitHub release binary). Does NOT
-  require a configured LLM endpoint — delegation mode is LLM-free on the
+  require OCR-side runner authentication — delegation mode is runner-free on the
   OCR side.
 metadata:
   author: alibaba
@@ -39,7 +39,7 @@ If `ocr` is not installed:
 npm install -g @alibaba-group/open-code-review
 ```
 
-No LLM configuration is needed for delegation mode.
+No OCR-side runner authentication is needed for delegation mode.
 
 ## Workflow
 
@@ -153,7 +153,7 @@ If the user requested "review and fix":
 
 ## Gotchas
 
-- **No LLM needed on OCR side** — delegation mode never calls an LLM. All intelligence comes from the host agent.
+- **No OCR-side runner needed** — delegation mode never invokes Codex or Claude through OCR. All intelligence comes from the host agent.
 - **Rules are grouped** — Files sharing the same rule are grouped together in the output. You can pass any number of paths per call; for large changes, fetch rules per-batch as you review.
 - **Working directory matters** — `ocr delegate` operates on the Git repo at the current directory. Use `--repo /path` to override.
 - **Untracked files in workspace mode** — `preview` includes untracked files. For these, read the file directly instead of using `git diff`.

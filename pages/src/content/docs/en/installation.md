@@ -172,7 +172,7 @@ echo $PATH
 
 | Path | What it holds |
 |---|---|
-| `~/.opencodereview/config.json` | LLM endpoint, language, telemetry config (managed by `ocr config set`). |
+| `~/.opencodereview/config.json` | Language, telemetry, and other OCR settings (managed by `ocr config set`). |
 | `~/.opencodereview/rule.json` | Optional global review rules. |
 | `~/.opencodereview/sessions/<encoded-repo-path>/<session-id>.jsonl` | Streaming JSONL transcript of every review session, used by `ocr viewer`. |
 | `~/.opencodereview/{last-update-check,update.lock,update-available}` | NPM wrapper's background update-check state. The wrapper polls for a newer release (every ~18 min by default) and prints an upgrade hint. Disable with `OCR_NO_UPDATE=1`, or tune the interval with `OCR_UPDATE_INTERVAL` (minutes). Not written by the static binary. |
@@ -183,6 +183,6 @@ download via NPM). Removing the directory is a clean uninstall.
 
 ## See Also
 
-- [QuickStart](../quickstart/) — configure an LLM and run your first review.
+- [QuickStart](../quickstart/) — authenticate a local runner and run your first review.
 - [Configuration](../configuration/) — every env var and config key OCR honors.
 - [Contributing](../contributing/) — build from source, run tests, and hack on OCR.

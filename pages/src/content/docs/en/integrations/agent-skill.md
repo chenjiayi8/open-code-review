@@ -34,8 +34,8 @@ command to update the skill to the latest version.
 > **Prerequisite:** the skill will install the `ocr` CLI itself the
 > first time it runs (via `npm install -g @alibaba-group/open-code-review`)
 > if the binary isn't on `PATH` — see [What the skill does](#what-the-skill-does)
-> below. You **do** need an LLM configured up front; the skill cannot
-> do that for you and will stop and ask. See [Configuration](../../configuration/).
+> below. You **do** need an authenticated local runner up front; the skill cannot
+> log in to Codex or Claude for you and will stop and ask. See [Configuration](../../configuration/).
 
 ### Option 2: Manual copy (system-wide)
 
@@ -56,19 +56,17 @@ itself executes the steps. End-to-end, a single `/open-code-review`
 (or equivalent) request unfolds like this:
 
 1. **Prerequisite check.** Run `which ocr` to confirm the CLI is on
-   `PATH`, then `ocr review --preview` to confirm an runner preflight is available.
+   `PATH`, then `ocr review --preview` to confirm the review target can be inspected before runner execution.
 2. **Auto-install the CLI if missing.** If `which ocr` reports
    "NOT INSTALLED", the agent runs
    `npm install -g @alibaba-group/open-code-review` and continues. No
    user prompt — this is treated as a routine setup step.
-3. **Stop and ask if no runner is authenticated.** If `ocr review --preview` fails,
-   the agent will *not* invent credentials. It shows the user the two
-   supported options (environment variables or `ocr config set …`) and
-   waits for the user to authenticate the selected runner.
+3. **Stop and ask if no runner is authenticated.** If the runner preflight or review fails because Codex/Claude is missing or logged out,
+   the agent will *not* invent credentials. It asks the user to authenticate the selected installed runner using its official login flow.
 4. **Extract business context.** Inspect the review target (commits,
    branch, working copy) and synthesise a short `--background` string.
 5. **Run the review.** Invoke
-   `ocr review --audience agent --background "…" [--commit | --from/--to]`,
+   `ocr review --runner codex --audience agent --background "…" [--commit | --from/--to]`,
    picking flags based on whether the user asked to review the working
    copy, a specific commit, or a branch range.
 6. **Classify and report.** Group the JSON comments into **High** /
@@ -101,8 +99,7 @@ agent.run("Review my staged changes — focus on race conditions.")
 
 The SDK loads the SKILL.md prompt and the agent executes the workflow
 described in [What the skill does](#what-the-skill-does) — including
-the `npm install` fallback and the prompt-for-credentials step if no
-LLM is configured.
+the `npm install` fallback and the prompt to authenticate the selected local runner if it is missing or logged out.
 
 ## Other agent frameworks
 

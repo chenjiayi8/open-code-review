@@ -19,7 +19,7 @@ ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```
 
-如果 OCR 报告需要 runner 订阅认证，说明所选 runner 缺失、未登录，或在当前环境不可用。安装/登录该 runner 后重试。不要添加 OCR 端点、token 或模型变量；这些凭据不归 OCR 管理。
+如果 OCR 报告需要 runner 订阅认证，说明所选 runner 缺失、未登录，或在当前环境不可用。安装/登录该 runner 后重试。不要发明 OCR 自有的 runner 凭据变量；请使用所选 runner 的官方登录流程认证。
 
 ### Preview 可用但 review 失败
 
@@ -31,7 +31,7 @@ ocr scan --runner claude --path internal/agent
 
 ### `not a git repository`
 
-`ocr review` 对当前目录运行 `git diff`（以及对 untracked 文件的 `git ls-files`）。
+`ocr review --runner codex` 对当前目录运行 `git diff`（以及对 untracked 文件的 `git ls-files`）。
 若你不在 Git 工作树内，它会提前退出。要么 `cd` 进仓库，要么传 `--repo /path/to/repo`。
 
 ### "No tool calls parsed"（本地模型 / Ollama）
@@ -192,7 +192,7 @@ diff 能从 plan 中受益。要为单次评审跳过它，用更小 diff 运行
 
 确认你看到的不是 **stderr**。进度消息偶尔会到 stderr（警告、错误）。`--audience
 agent` 保证的干净 stdout 是*对解析器友好的*——要屏蔽一切，重定向：
-`ocr review --audience agent 2>/dev/null`。
+`ocr review --runner codex --audience agent 2>/dev/null`（先认证所选 runner）。
 
 ### JSON 输出是 `{ "files_reviewed": 0, "comments": [] }`
 
@@ -218,7 +218,8 @@ agent` 保证的干净 stdout 是*对解析器友好的*——要屏蔽一切，
 ```bash
 ocr config set telemetry.enabled true
 ocr config set telemetry.exporter console
-ocr review
+codex login                 # or: claude auth login --claudeai
+ocr review --runner codex
 ```
 
 LLM 调用没有自己的 span——它们记为 metric。关注 `ocr.llm.tokens_used`
@@ -249,7 +250,7 @@ metrics 体系——见[遥测](../telemetry/)。
 
 ### OCR 会把我的代码发到别处吗？
 
-OCR 把你的 **diff**（及可选 read-tool 片段）发到你配置的 LLM 端点。其余任何内容都不
+OCR 把你的 **diff**（及可选 read-tool 片段）交给所选且已认证的本地 runner。其余任何内容都不
 离开你的机器——会话 JSONL 与规则文件仅存于本地。
 
 若启用遥测，`content_logging` 标志已接入配置层但目前**不**控制任何代码路径——
@@ -297,7 +298,7 @@ OCR 不在 `~/.opencodereview` 之外写入（NPM 下载二进制除外），因
 
 ## 另见
 
-- [配置](../configuration/)——LLM 端点解析与 config key。
+- [配置](../configuration/)——runner 选择与 config key。
 - [评审规则](../review-rules/)——文件过滤器与规则解析链。
 - [会话查看器](../viewer/)——查看历史评审会话。
 - [遥测](../telemetry/)——token 用量与 LLM 指标。

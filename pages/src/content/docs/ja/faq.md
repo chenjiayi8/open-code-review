@@ -20,7 +20,7 @@ ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```
 
-このエラーは、選択した runner が見つからない、ログアウトしている、または現在の環境で利用できないことを示します。runner をインストール/ログインしてから再試行してください。OCR 用のエンドポイント、token、モデル変数は追加しません。
+このエラーは、選択した runner が見つからない、ログアウトしている、または現在の環境で利用できないことを示します。runner をインストール/ログインしてから再試行してください。OCR 独自の runner 認証変数を作らず、選択した runner の公式ログインフローで認証してください。
 
 ### Preview は動くが review が失敗する
 
@@ -32,7 +32,7 @@ ocr scan --runner claude --path internal/agent
 
 ### `not a git repository`
 
-`ocr review` はカレントディレクトリに対して `git diff`（および untracked ファイルに対する
+`ocr review --runner codex` はカレントディレクトリに対して `git diff`（および untracked ファイルに対する
 `git ls-files`）を実行します。Git ワークツリー内にいない場合は、早期に終了します。リポジトリに
 `cd` するか、`--repo /path/to/repo` を渡してください。
 
@@ -205,7 +205,7 @@ JSON モードでは `warnings` にも表示されます。
 
 見ているのが **stderr** でないことを確認してください。進捗メッセージは時々 stderr に出ます
 （警告、エラー）。`--audience agent` が保証するクリーンな stdout は*パーサーに優しい*ものです——
-すべてを遮断するにはリダイレクトしてください: `ocr review --audience agent 2>/dev/null`。
+すべてを遮断するにはリダイレクトしてください: `ocr review --runner codex --audience agent 2>/dev/null`（先に選択した runner を認証します）。
 
 ### JSON 出力が `{ "files_reviewed": 0, "comments": [] }`
 
@@ -232,7 +232,8 @@ JSON モードでは `warnings` にも表示されます。
 ```bash
 ocr config set telemetry.enabled true
 ocr config set telemetry.exporter console
-ocr review
+codex login                 # or: claude auth login --claudeai
+ocr review --runner codex
 ```
 
 LLM 呼び出しには独自の span がありません——metric として記録されます。`ocr.llm.tokens_used`
@@ -265,7 +266,7 @@ OTLP exporter に切り替えて metrics 基盤に送ってください——[�
 
 ### OCR は私のコードをどこかに送るのか？
 
-OCR はあなたの **diff**（および任意の read-tool スニペット）を、設定した LLM エンドポイントに送ります。
+OCR はあなたの **diff**（および任意の read-tool スニペット）を、選択済みかつ認証済みのローカル runner に渡します。
 それ以外のものは一切あなたのマシンから出ません——セッション JSONL とルールファイルはローカルにのみ
 存在します。
 
@@ -317,7 +318,7 @@ OCR は `~/.opencodereview` の外には書き込みません（NPM がダウン
 
 ## 関連項目
 
-- [設定](../configuration/)——LLM エンドポイント解決と config key。
+- [設定](../configuration/)——runner 選択と config key。
 - [レビュールール](../review-rules/)——ファイルフィルターとルール解決チェーン。
 - [セッションビューア](../viewer/)——過去のレビューセッションを表示する。
 - [テレメトリ](../telemetry/)——token 使用量と LLM メトリクス。
