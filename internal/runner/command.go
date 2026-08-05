@@ -3,11 +3,6 @@ package runner
 import "strings"
 
 var blockedEnvNames = map[string]struct{}{
-	"OPENAI_API_KEY":        {},
-	"CODEX_API_KEY":         {},
-	"CODEX_ACCESS_TOKEN":    {},
-	"ANTHROPIC_API_KEY":     {},
-	"ANTHROPIC_BASE_URL":    {},
 	"OCR_LLM_URL":           {},
 	"OCR_LLM_TOKEN":         {},
 	"OCR_LLM_AUTH_TOKEN":    {},

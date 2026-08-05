@@ -62,7 +62,7 @@ func TestPreflightRejectsAbsentExecutableFromInjectedLookup(t *testing.T) {
 	}
 }
 
-func TestPreflightClassifiesTimeoutFromInjectedCommand(t *testing.T) {
+func TestRunClassifiesTimeoutFromInjectedCommand(t *testing.T) {
 	r := &Runner{
 		kind:     Claude,
 		timeout:  time.Nanosecond,
@@ -76,9 +76,95 @@ func TestPreflightClassifiesTimeoutFromInjectedCommand(t *testing.T) {
 		},
 		environ: func() []string { return nil },
 	}
-	_, err := r.Preflight(context.Background())
+	_, err := r.Run(context.Background(), Request{
+		Operation:  Review,
+		Repository: t.TempDir(),
+		Files:      []File{{Path: "src/a.go", Rule: "review"}},
+	})
 	if !errors.Is(err, ErrRunnerTimeout) {
-		t.Fatalf("Preflight error = %v, want ErrRunnerTimeout", err)
+		t.Fatalf("Run error = %v, want ErrRunnerTimeout", err)
+	}
+}
+
+func TestRunDoesNotIssueAuthStatusCommand(t *testing.T) {
+	repo := t.TempDir()
+	calls := make([][]string, 0, 1)
+	r := &Runner{
+		kind:     Codex,
+		lookPath: func(string) (string, error) { return "/usr/bin/codex", nil },
+		runCommand: func(_ context.Context, _ string, args []string, _ []byte, _ []string, _ string) ([]byte, error) {
+			calls = append(calls, append([]string(nil), args...))
+			for i := 0; i+1 < len(args); i++ {
+				if args[i] == "-o" {
+					if err := os.WriteFile(args[i+1], []byte(`{"reviewed_files":["src/a.go"],"findings":[]}`), 0o600); err != nil {
+						t.Fatalf("write codex result: %v", err)
+					}
+				}
+			}
+			return nil, nil
+		},
+		environ: func() []string { return nil },
+	}
+
+	_, _ = r.Run(context.Background(), Request{
+		Operation:  Review,
+		Repository: repo,
+		Files:      []File{{Path: "src/a.go", Rule: "review"}},
+	})
+	if len(calls) == 0 || calls[0][0] != "exec" {
+		t.Fatalf("calls = %#v, want first command to start with codex exec", calls)
+	}
+}
+
+func TestPreflightDiscoversExecutableWithoutStatusCommand(t *testing.T) {
+	for _, kind := range []Kind{Codex, Claude} {
+		t.Run(string(kind), func(t *testing.T) {
+			r := &Runner{
+				kind: kind,
+				lookPath: func(name string) (string, error) {
+					return "/usr/bin/" + name, nil
+				},
+				runCommand: func(context.Context, string, []string, []byte, []string, string) ([]byte, error) {
+					t.Fatal("Preflight must not execute login, auth, or status commands")
+					return nil, nil
+				},
+				environ: func() []string { return []string{"OPENAI_API_KEY=token", "ANTHROPIC_API_KEY=token"} },
+			}
+
+			identity, err := r.Preflight(context.Background())
+			if err != nil {
+				t.Fatalf("Preflight: %v", err)
+			}
+			if identity.Kind != kind || identity.Executable != "/usr/bin/"+string(kind) || identity.AuthMethod != "native-cli" {
+				t.Fatalf("identity = %+v, want native-cli executable discovery", identity)
+			}
+			if r.lastExecutable != identity.Executable {
+				t.Fatalf("lastExecutable = %q, want %q", r.lastExecutable, identity.Executable)
+			}
+		})
+	}
+}
+
+func TestClaudeRunDoesNotIssueAuthStatusCommand(t *testing.T) {
+	repo := t.TempDir()
+	calls := make([][]string, 0, 1)
+	r := &Runner{
+		kind:     Claude,
+		lookPath: func(string) (string, error) { return "/usr/bin/claude", nil },
+		runCommand: func(_ context.Context, _ string, args []string, _ []byte, _ []string, _ string) ([]byte, error) {
+			calls = append(calls, append([]string(nil), args...))
+			return []byte(`{"type":"result","subtype":"success","is_error":false,"result":"{\"reviewed_files\":[\"src/a.go\"],\"findings\":[]}"}`), nil
+		},
+		environ: func() []string { return nil },
+	}
+
+	_, _ = r.Run(context.Background(), Request{
+		Operation:  Review,
+		Repository: repo,
+		Files:      []File{{Path: "src/a.go", Rule: "review"}},
+	})
+	if len(calls) == 0 || calls[0][0] != "-p" {
+		t.Fatalf("calls = %#v, want first command to start with claude -p", calls)
 	}
 }
 
@@ -164,10 +250,10 @@ func TestClaudeRunExecutesFromRequestRepository(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if len(commandCWDs) != 2 {
-		t.Fatalf("command cwd calls = %#v, want preflight and run", commandCWDs)
+	if len(commandCWDs) != 1 {
+		t.Fatalf("command cwd calls = %#v, want only run command", commandCWDs)
 	}
-	if got := commandCWDs[1]; got != repo {
+	if got := commandCWDs[0]; got != repo {
 		t.Fatalf("claude run cwd = %q, want request repository %q", got, repo)
 	}
 }
