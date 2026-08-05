@@ -331,7 +331,7 @@ Match lines: 1
 复制 `tools.json`，删掉不想要的条目，然后运行：
 
 ```bash
-ocr review --tools ./my-tools.json
+ocr review --runner codex --tools ./my-tools.json
 ```
 
 例如，想要一个从不读额外上下文的“仅评论”评审器，只保留 `code_comment` 和

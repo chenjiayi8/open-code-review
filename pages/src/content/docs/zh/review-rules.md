@@ -227,7 +227,7 @@ Rule:
 ### 按 PR 覆盖
 
 ```bash
-ocr review --rule ./.review-rules-only-for-this-pr.json
+ocr review --runner codex --rule ./.review-rules-only-for-this-pr.json
 ```
 
 同时绕过项目层与全局层——当单个 PR 需要完全不同的评审清单（如仅安全评审）时
@@ -250,6 +250,6 @@ ocr review --rule ./.review-rules-only-for-this-pr.json
 
 ## 另见
 
-- [CLI 参考](../cli-reference/)——`ocr review --rule`、`--preview` 与 `ocr rules check`。
+- [CLI 参考](../cli-reference/)——`ocr review --runner codex --rule`、`ocr review --preview` 与 `ocr rules check`。
 - [配置](../configuration/)——config 文件位置与分层解析链。
 - [架构](../architecture/)——解析出的规则如何馈入 agent prompt。

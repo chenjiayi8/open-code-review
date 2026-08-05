@@ -364,7 +364,7 @@ Two paths to extend:
 Copy `tools.json`, drop the entry you don't want, then run:
 
 ```bash
-ocr review --tools ./my-tools.json
+ocr review --runner codex --tools ./my-tools.json
 ```
 
 For example, if you want a "comment-only" reviewer that never reads

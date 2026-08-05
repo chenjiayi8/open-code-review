@@ -331,7 +331,7 @@ Match lines: 1
 `tools.json` をコピーし、不要なエントリを削除してから実行します：
 
 ```bash
-ocr review --tools ./my-tools.json
+ocr review --runner codex --tools ./my-tools.json
 ```
 
 たとえば、追加のコンテキストを一切読み取らない「コメントのみ」のレビューアが欲しい場合は、`code_comment` と

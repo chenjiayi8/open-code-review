@@ -169,7 +169,7 @@ exported traces.
 ## When the viewer is not the right tool
 
 - For programmatic post-processing (CI, dashboards), use
-  `ocr review --format json --audience agent`. The viewer renders for
+  `ocr review --runner codex --format json --audience agent`. The viewer renders for
   humans, not machines.
 - For grepping across many sessions, use `jq` on the JSONL files
   directly. There's no search box in the UI yet.

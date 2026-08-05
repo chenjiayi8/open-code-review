@@ -139,7 +139,7 @@ cat <path>                     # 新規未追跡ファイル
 
 | モード | LLM を呼ぶのは？ | ユースケース |
 |--------|-----------------|-------------|
-| [Agent Skill](../agent-skill/) | OCR | Agent が `ocr review` を呼び出し、OCR が完全なレビューを駆動 |
+| [Agent Skill](../agent-skill/) | OCR | Agent が `ocr review --runner codex` を呼び出し、OCR が完全なレビューを駆動 |
 | [Command（Claude Code）](../claude-code/) | OCR | Claude Code のスラッシュコマンド、OCR がレビューを駆動 |
 | **デリゲーションモード** | ホストエージェント | OCR がスキャフォールディングを提供、Agent がレビューを駆動 |
 

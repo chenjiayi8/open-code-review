@@ -369,7 +369,7 @@ Match lines: 1
 Скопируйте `tools.json`, удалите ненужную запись и выполните:
 
 ```bash
-ocr review --tools ./my-tools.json
+ocr review --runner codex --tools ./my-tools.json
 ```
 
 Например, для «ревьюера только с комментариями», который не читает
