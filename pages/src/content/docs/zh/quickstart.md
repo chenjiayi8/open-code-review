@@ -1,100 +1,51 @@
 ---
-title: 快速开始
+title: QuickStart
 sidebar:
   order: 3
 ---
 
-几分钟内跑通第一次代码评审。
+几分钟内完成第一次代码审查。
 
 ## 前置条件
 
 - **Git ≥ 2.41**
 - **Node.js ≥ 18**
-- **LLM API key**（使用[委托模式](../integrations/delegate/)时不需要）
+- **已用本地订阅登录的 Codex CLI 或 Claude Code CLI**
 
-## 第 1 步 —— 安装 CLI
+## 第 1 步 — 安装 CLI
 
 ```bash
 npm install -g @alibaba-group/open-code-review
-```
-
-```bash
 ocr version
 ```
 
-> 更多方式见 [安装](../installation/)。
+## 第 2 步 — 登录本地 runner
 
-## 第 2 步 —— 配置 LLM
-
-> 如果你使用的是[委托模式](../integrations/delegate/)（如在 Claude Code 中运行），宿主 agent 会提供模型 —— 可直接跳到第 4 步。
+OCR 将 LLM 工作交给已安装的本地 CLI。订阅认证由本地 CLI 负责；OCR 不配置也不使用供应商 API 密钥。
 
 ```bash
-ocr config provider
+codex login                 # or: claude auth login --claudeai
+ocr review --runner codex
+ocr scan --runner claude --path internal/agent
 ```
 
-它会让你选择一个内置或自定义 provider、填入 API key、挑选 model，保存到配置文件后自动运行一次 `ocr llm test` 验证端点。之后想换模型：
+`ocr review` 与 `ocr scan` 必须传入 `--runner`。需要为单次运行覆盖 runner 默认模型时，可选使用 `--runner-model <name>`。`--preview` 等只读/预检命令不会调用 runner，可在登录前运行。
 
-```bash
-ocr config model
-```
-
-### 备选:非交互命令
-
-在 CI 或无 TUI 的环境里,用 `ocr config set` 直接写入同一份配置:
-
-```bash
-ocr config set provider                    anthropic
-ocr config set model                       claude-opus-4-6
-ocr config set providers.anthropic.api_key sk-ant-xxxxxxxxxx
-```
-
-## 第 3 步 —— 测试连通性
-
-```bash
-ocr llm test
-```
-
-如果报出 `no valid LLM endpoint configured` 这类错误,请重新检查第 2 步的配置。 401 / 403 表示 token 错误或已过期。
-
-## 第 4 步 —— 运行第一次评审
-
-进入任意 Git 仓库并运行：
+## 第 3 步 — 运行第一次审查
 
 ```bash
 cd path/to/your-repo
-
-# 工作区模式 —— 评审 staged + unstaged + untracked 变更（默认）
-ocr review
-
-# 分支区间 —— 评审 `main..feature-branch`
-ocr review --from main --to feature-branch
-
-# 单个 commit —— 评审该 commit 引入的 diff
-ocr review --commit abc123
+ocr review --runner codex
+ocr review --runner codex --from main --to feature-branch
+ocr review --runner codex --commit abc123
+ocr scan --runner claude --path internal/agent
 ```
 
-> `ocr review` 的完整参数（并发调优、输出格式、audience模式、背景上下文等）及其他所有子命令见 [CLI 参考](../cli-reference/)。
+如果 OCR 报告预检认证失败，请先运行所选 runner 的登录命令再重试。CI 认证与本地订阅登录相互独立；在 CI 任务中登录 Codex 或 Claude，而不要为 OCR 配置供应商密钥。
 
-### 想先看看会评审什么？
+## 参见
 
-```bash
-ocr review --preview              # 工作区
-ocr review -c abc123 --preview    # commit
-```
-
-### 面向系统的 JSON 输出
-
-`--audience agent` 屏蔽人性化的进度 UI,让 stdout 只剩 JSON / 最终摘要 —— 正是上游 agent 或 CI 脚本所需。
-
-```bash
-ocr review --format json --audience agent > review.json
-```
-
-## 另见
-
-- [安装](../installation/) —— 全部安装方式与 OCR 的状态目录。
-- [配置](../configuration/) —— 每个环境变量、config key 与内置 provider。
-- [CLI 参考](../cli-reference/) —— 每个子命令、参数与输出模式。
-- [评审规则](../review-rules/) —— 自定义评审内容。
-- [集成](../integrations/agent-skill/) —— 把 OCR 嵌入 Claude Code、Agent skill 或 CI。
-- [FAQ](../faq/) —— 已知错误与对策。
+- [安装](../installation/)
+- [配置](../configuration/)
+- [CLI 参考](../cli-reference/)
+- [评审规则](../review-rules/)

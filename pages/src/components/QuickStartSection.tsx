@@ -126,17 +126,14 @@ const QuickStartSection: React.FC = () => {
               <img src={chevronRight} alt="" style={{ width: 16, height: 16 }} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <CodeBlock label={t('quickstart.step2Label1')} code="ocr config provider" onCopy={handleCopy} />
+              <CodeBlock label={t('quickstart.step2Label1')} code="codex login" onCopy={handleCopy} />
               <CodeBlock
                 label={t('quickstart.step2Label2')}
-                code={`ocr config set llm.url https://api.anthropic.com \\
-    && ocr config set llm.auth_token {{your-api-key}} \\
-    && ocr config set llm.model claude-opus-4-6 \\
-    && ocr config set llm.use_anthropic true`}
+                code={`claude auth login --claudeai`}
                 multiline
                 onCopy={handleCopy}
               />
-              <CodeBlock label={t('quickstart.step2Label3')} code="ocr llm test" onCopy={handleCopy} />
+              <CodeBlock label={t('quickstart.step2Label3')} code="ocr review --runner codex" onCopy={handleCopy} />
             </div>
           </div>
 
@@ -158,13 +155,13 @@ const QuickStartSection: React.FC = () => {
               <CodeBlock
                 label={t('quickstart.step3Label1')}
                 code={`${t('quickstart.commentReview')}
-ocr review
+ocr review --runner codex
 
 ${t('quickstart.commentBranch')}
-ocr review --from main --to feature-auth
+ocr review --runner codex --from main --to feature-auth
 
 ${t('quickstart.commentCommit')}
-ocr review --commit abc123`}
+ocr review --runner codex --commit abc123`}
                 multiline
                 onCopy={handleCopy}
               />

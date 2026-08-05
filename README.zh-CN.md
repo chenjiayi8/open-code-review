@@ -112,20 +112,19 @@ npm install -g @alibaba-group/open-code-review
 
 #### 快速开始
 
-**1. 配置 LLM**
+**1. 登录本地 runner**
 
-在审查代码之前，必须先配置 LLM。除非你使用[委托模式](https://open-codereview.ai/docs/delegate)。
+OCR 现在通过已安装的本地 CLI 订阅运行。先登录你要使用的 runner；OCR 本身不会配置或使用供应商 API 密钥。
 
 ```bash
-ocr config provider          # 选择内置供应商或添加自定义供应商
-ocr config model             # 为当前供应商选择模型
+codex login                 # or: claude auth login --claudeai
+ocr review --runner codex
+ocr scan --runner claude --path internal/agent
 ```
 
-![Provider setup](imgs/providers.jpg)
+除 `--preview` 等只读/预检命令外，`ocr review` 与 `ocr scan` 都必须传入 `--runner`。如需为单次运行覆盖 runner 默认模型，可选传入 `--runner-model <name>`。
 
-交互式界面会引导你完成供应商选择、API Key 输入和模型配置，完成后自动测试连通性。
-
-命令行设置、环境变量、自定义供应商等高级配置，详见[配置指南](https://open-codereview.ai/docs/configuration)。
+本地设置见[配置指南](https://open-codereview.ai/docs/configuration)。CI 认证是独立的：CI 任务应在该环境中登录所选 runner，而不是保存 OCR 供应商凭据。
 
 **2. 开始审查**
 
@@ -133,22 +132,22 @@ ocr config model             # 为当前供应商选择模型
 cd your-project
 
 # 工作区模式 —— 审查所有暂存、未暂存和未跟踪的变更
-ocr review
+ocr review --runner codex
 
 # 分支范围 —— 比较两个引用
-ocr review --from main --to feature-branch
+ocr review --runner codex --from main --to feature-branch
 
 # 单个提交
-ocr review --commit abc123
+ocr review --runner codex --commit abc123
 
 # 恢复中断的区间或单 commit 评审
 ocr session list
-ocr review --from main --to feature-branch --resume <session-id>
+ocr review --runner codex --from main --to feature-branch --resume <session-id>
 
 # 全量文件扫描 —— 审查整个文件而非 diff（无需 git 历史）
-ocr scan                          # 扫描整个仓库
-ocr scan --path internal/agent    # 扫描指定目录或文件
-ocr scan --resume <session-id>   # 恢复中断的全量文件扫描
+ocr scan --runner claude          # 扫描整个仓库
+ocr scan --runner claude --path internal/agent    # 扫描指定目录或文件
+ocr scan --runner claude --resume <session-id>   # 恢复中断的全量文件扫描
 
 # 委托模式 — 让你的 AI 编程 agent 自己执行评审
 # OCR 负责文件选择和规则解析；无需配置 LLM

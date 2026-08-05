@@ -1,100 +1,51 @@
 ---
-title: Быстрый старт
+title: QuickStart
 sidebar:
   order: 3
 ---
 
-Запустите первое код-ревью за несколько минут.
+Запустите первое ревью за несколько минут.
 
-## Предварительные требования
+## Требования
 
 - **Git ≥ 2.41**
 - **Node.js ≥ 18**
-- **API-ключ LLM** (не нужен при использовании [режима делегирования](../integrations/delegate/))
+- **Codex CLI или Claude Code CLI с активным локальным входом по подписке**
 
-## Шаг 1. Установите CLI
+## Шаг 1 — Установите CLI
 
 ```bash
 npm install -g @alibaba-group/open-code-review
-```
-
-```bash
 ocr version
 ```
 
-> Другие способы установки описаны в разделе [Установка](../installation/).
+## Шаг 2 — Войдите в локальный runner
 
-## Шаг 2. Настройте LLM
-
-> Если вы используете [режим делегирования](../integrations/delegate/) (например, внутри Claude Code), модель предоставляет основной агент. Переходите сразу к шагу 4.
+OCR передает LLM-работу установленной локальной CLI. Подписочной аутентификацией владеет локальная CLI; OCR не настраивает и не использует API-ключи провайдеров.
 
 ```bash
-ocr config provider
+codex login                 # or: claude auth login --claudeai
+ocr review --runner codex
+ocr scan --runner claude --path internal/agent
 ```
 
-Выберите встроенного или пользовательского провайдера, введите API-ключ и укажите модель. Команда сохранит настройки в файл конфигурации и запустит `ocr llm test`, чтобы проверить подключение. Чтобы позже сменить модель:
+Для `ocr review` и `ocr scan` обязателен `--runner`. Чтобы переопределить модель runner только для одного запуска, используйте необязательный `--runner-model <name>`. Read-only/preflight команды вроде `--preview` не вызывают runner и могут выполняться до входа.
 
-```bash
-ocr config model
-```
-
-### Альтернатива: неинтерактивная команда
-
-В CI или среде без TUI задайте те же параметры напрямую через `ocr config set`:
-
-```bash
-ocr config set provider                    anthropic
-ocr config set model                       claude-opus-4-6
-ocr config set providers.anthropic.api_key sk-ant-xxxxxxxxxx
-```
-
-## Шаг 3. Проверьте подключение
-
-```bash
-ocr llm test
-```
-
-Если видите ошибку вроде `no valid LLM endpoint configured`, проверьте настройки из шага 2. Коды 401 / 403 означают, что токен неверный или истёк.
-
-## Шаг 4. Запустите первое ревью
-
-Перейдите в любой Git-репозиторий и выполните:
+## Шаг 3 — Запустите первое ревью
 
 ```bash
 cd path/to/your-repo
-
-# Все локальные изменения, включая новые файлы
-ocr review
-
-# Изменения в feature-branch относительно main
-ocr review --from main --to feature-branch
-
-# Изменения, внесённые коммитом abc123
-ocr review --commit abc123
+ocr review --runner codex
+ocr review --runner codex --from main --to feature-branch
+ocr review --runner codex --commit abc123
+ocr scan --runner claude --path internal/agent
 ```
 
-> Полный список флагов `ocr review`, включая параметры параллельного выполнения, формат вывода, режим `--audience` и контекст требований, приведён в [Справочнике CLI](../cli-reference/). Там же перечислены остальные подкоманды.
-
-### Какие файлы попадут в ревью
-
-```bash
-ocr review --preview              # локальные изменения
-ocr review -c abc123 --preview    # коммит abc123
-```
-
-### JSON для автоматизации
-
-`--audience agent` скрывает интерфейс прогресса: в стандартный вывод (`stdout`) попадают только JSON и итоговая сводка. Такой формат подходит вызывающему агенту или CI-скрипту.
-
-```bash
-ocr review --format json --audience agent > review.json
-```
+Если OCR сообщает об ошибке preflight-аутентификации, выполните вход для выбранного runner и повторите команду. CI-аутентификация отделена от локального входа по подписке: входите в Codex или Claude внутри CI-задачи, а не храните секреты провайдера OCR.
 
 ## См. также
 
-- [Установка](../installation/): все способы установки и каталог с данными OCR.
-- [Конфигурация](../configuration/): все переменные окружения, ключи конфигурации и встроенные провайдеры.
-- [Справочник CLI](../cli-reference/): все подкоманды, флаги и режимы вывода.
-- [Правила ревью](../review-rules/): настройка того, что попадает в ревью.
-- [Интеграции](../integrations/agent-skill/): встраивание OCR в Claude Code, Agent skill или CI.
-- [FAQ](../faq/): известные ошибки и способы их устранения.
+- [Установка](../installation/)
+- [Конфигурация](../configuration/)
+- [CLI Reference](../cli-reference/)
+- [Правила ревью](../review-rules/)

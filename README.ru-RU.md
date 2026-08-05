@@ -112,20 +112,19 @@ npm install -g @alibaba-group/open-code-review
 
 #### Быстрый старт
 
-**1. Настройте LLM**
+**1. Войдите в локальный runner**
 
-Перед запуском ревью необходимо настроить LLM, если только вы не используете [режим делегирования](https://open-codereview.ai/docs/delegate).
+OCR запускается через установленную локальную CLI с подпиской. Сначала войдите в нужный runner; сам OCR не настраивает и не использует API-ключи провайдеров.
 
 ```bash
-ocr config provider          # Выбрать встроенного провайдера или добавить пользовательский
-ocr config model             # Выбрать модель для активного провайдера
+codex login                 # or: claude auth login --claudeai
+ocr review --runner codex
+ocr scan --runner claude --path internal/agent
 ```
 
-![Provider setup](imgs/providers.jpg)
+Кроме read-only/preflight команд вроде `--preview`, для `ocr review` и `ocr scan` обязателен `--runner`. Чтобы переопределить модель runner только для одного запуска, укажите необязательный `--runner-model <name>`.
 
-Интерактивный UI проведёт вас через выбор провайдера, ввод API-ключа и настройку модели, после чего автоматически проверит подключение.
-
-Настройка через CLI, переменные окружения, пользовательские провайдеры и другие расширенные параметры описаны в [руководстве по конфигурации](https://open-codereview.ai/docs/configuration).
+Локальная настройка описана в [руководстве по конфигурации](https://open-codereview.ai/docs/configuration). Аутентификация в CI выполняется отдельно: CI-задача должна входить в выбранный runner в своей среде, а не хранить учетные данные провайдера OCR.
 
 **2. Запустите ревью**
 
@@ -133,22 +132,22 @@ ocr config model             # Выбрать модель для активно
 cd your-project
 
 # Режим рабочей копии — ревью всех staged, unstaged и untracked изменений
-ocr review
+ocr review --runner codex
 
 # Диапазон веток — сравнение двух ref'ов
-ocr review --from main --to feature-branch
+ocr review --runner codex --from main --to feature-branch
 
 # Один коммит
-ocr review --commit abc123
+ocr review --runner codex --commit abc123
 
 # Возобновить прерванное ревью диапазона или одного коммита
 ocr session list
-ocr review --from main --to feature-branch --resume <session-id>
+ocr review --runner codex --from main --to feature-branch --resume <session-id>
 
 # Полнофайловое сканирование — ревью целых файлов вместо диффа (история git не нужна)
-ocr scan                          # сканировать весь репозиторий
-ocr scan --path internal/agent    # сканировать каталог или конкретные файлы
-ocr scan --resume <session-id>   # возобновить прерванное полнофайловое сканирование
+ocr scan --runner claude          # сканировать весь репозиторий
+ocr scan --runner claude --path internal/agent    # сканировать каталог или конкретные файлы
+ocr scan --runner claude --resume <session-id>   # возобновить прерванное полнофайловое сканирование
 
 # Режим делегирования — ИИ-агент сам выполняет ревью
 # OCR отвечает за выбор файлов и разрешение правил; настройка LLM не требуется

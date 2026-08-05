@@ -112,20 +112,19 @@ For other installation methods (install script, GitHub Release binary, from sour
 
 #### Quick Start
 
-**1. Configure LLM**
+**1. Authenticate a local runner**
 
-You must configure an LLM before reviewing code, unless you use [Delegation Mode](https://open-codereview.ai/docs/delegate).
+OCR now runs through an installed local CLI subscription. Log in to the runner you want to use; OCR never configures or uses provider API keys itself.
 
 ```bash
-ocr config provider          # Select a built-in provider or add a custom one
-ocr config model             # Pick a model for the active provider
+codex login                 # or: claude auth login --claudeai
+ocr review --runner codex
+ocr scan --runner claude --path internal/agent
 ```
 
-![Provider setup](imgs/providers.jpg)
+`--runner` is required for `ocr review` and `ocr scan` unless you are using read-only/preflight flags such as `--preview`. Use `--runner-model <name>` only when you want to override the runner's default model for one run.
 
-The interactive UI guides you through provider selection, API key entry, and model configuration, then automatically tests connectivity.
-
-For CLI setup, environment variables, custom providers, and other advanced configuration, see [Configuration](https://open-codereview.ai/docs/configuration).
+For local setup, see [Configuration](https://open-codereview.ai/docs/configuration). CI authentication is separate: CI jobs should authenticate the selected runner in that environment instead of storing OCR provider credentials.
 
 **2. Review**
 
@@ -133,26 +132,26 @@ For CLI setup, environment variables, custom providers, and other advanced confi
 cd your-project
 
 # Workspace mode — review all staged, unstaged, and untracked changes
-ocr review
+ocr review --runner codex
 
 # Branch range — compare two refs
-ocr review --from main --to feature-branch
+ocr review --runner codex --from main --to feature-branch
 
 # Single commit
-ocr review --commit abc123
+ocr review --runner codex --commit abc123
 
 # Resume an interrupted range or commit review
 ocr session list
-ocr review --from main --to feature-branch --resume <session-id>
+ocr review --runner codex --from main --to feature-branch --resume <session-id>
 
 # Print the review comments recorded in a saved session
 ocr session comments <session-id>
 ocr session comments --severity critical,high --json <session-id>
 
 # Full-file scan — review whole files instead of a diff (no git history needed)
-ocr scan                          # scan the entire repository
-ocr scan --path internal/agent    # scan a directory or specific files
-ocr scan --resume <session-id>   # resume an interrupted full-file scan
+ocr scan --runner claude          # scan the entire repository
+ocr scan --runner claude --path internal/agent    # scan a directory or specific files
+ocr scan --runner claude --resume <session-id>   # resume an interrupted full-file scan
 
 # Delegation mode — let your AI coding agent perform the review itself
 # OCR handles file selection and rule resolution; no LLM configuration needed

@@ -112,20 +112,19 @@ npm install -g @alibaba-group/open-code-review
 
 #### Quick Start
 
-**1. LLM 설정**
+**1. 로컬 runner 로그인**
 
-코드 리뷰 전에 LLM 설정이 필요합니다. [위임 모드](https://open-codereview.ai/docs/delegate)를 사용하는 경우에는 불필요합니다.
+OCR은 설치된 로컬 CLI 구독을 통해 실행됩니다. 사용할 runner에 먼저 로그인하세요. OCR 자체는 provider API key를 설정하거나 사용하지 않습니다.
 
 ```bash
-ocr config provider          # built-in provider 선택 또는 custom provider 추가
-ocr config model             # 활성 provider의 model 선택
+codex login                 # or: claude auth login --claudeai
+ocr review --runner codex
+ocr scan --runner claude --path internal/agent
 ```
 
-![Provider setup](imgs/providers.jpg)
+`--preview` 같은 read-only/preflight 명령을 제외하면 `ocr review`와 `ocr scan`에는 `--runner`가 필수입니다. 한 번의 실행에서 runner 기본 모델만 바꾸려면 `--runner-model <name>`을 선택적으로 지정하세요.
 
-대화형 UI가 provider 선택, API key 입력, model 설정을 안내하며, 완료 후 자동으로 연결 테스트를 수행합니다.
-
-CLI 설정, 환경 변수, 커스텀 provider 등 고급 설정은 [설정 가이드](https://open-codereview.ai/docs/configuration)를 참조하세요.
+로컬 설정은 [설정 가이드](https://open-codereview.ai/docs/configuration)를 참조하세요. CI 인증은 별도입니다. CI 작업에서는 OCR provider credential을 저장하지 말고 해당 환경에서 선택한 runner에 로그인해야 합니다.
 
 **2. 리뷰 실행**
 
@@ -133,22 +132,22 @@ CLI 설정, 환경 변수, 커스텀 provider 등 고급 설정은 [설정 가�
 cd your-project
 
 # Workspace mode: staged, unstaged, untracked 변경을 모두 리뷰
-ocr review
+ocr review --runner codex
 
 # Branch range: 두 ref 비교
-ocr review --from main --to feature-branch
+ocr review --runner codex --from main --to feature-branch
 
 # 단일 commit
-ocr review --commit abc123
+ocr review --runner codex --commit abc123
 
 # 중단된 range 또는 단일 commit review 재개
 ocr session list
-ocr review --from main --to feature-branch --resume <session-id>
+ocr review --runner codex --from main --to feature-branch --resume <session-id>
 
 # 전체 파일 스캔 — diff 대신 파일 전체를 리뷰 (git 이력 불필요)
-ocr scan                          # 전체 repository 스캔
-ocr scan --path internal/agent    # 디렉터리 또는 특정 파일 스캔
-ocr scan --resume <session-id>   # 중단된 전체 파일 스캔 재개
+ocr scan --runner claude          # 전체 repository 스캔
+ocr scan --runner claude --path internal/agent    # 디렉터리 또는 특정 파일 스캔
+ocr scan --runner claude --resume <session-id>   # 중단된 전체 파일 스캔 재개
 
 # 위임 모드 — AI 코딩 에이전트가 직접 리뷰 수행
 # OCR은 파일 선택과 규칙 해석만 담당; LLM 설정 불필요
