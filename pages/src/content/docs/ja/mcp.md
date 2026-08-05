@@ -76,7 +76,7 @@ MCP server はユーザー設定ファイル（`~/.opencodereview/config.json`�
 ## 名前の衝突
 
 MCP ツール名は組み込みツールと 1 つの名前空間を共有します。server が広告する
-ツール名が**組み込み / 予約**ツール（`file_read`、`code_search`、`task_done` など）や、
+ツール名が**組み込み / 予約**ツール（runner reserved names または built-in MCP names）や、
 別の MCP server が既に登録したツールと衝突する場合、OCR はそれを**スキップ**して
 警告を記録します。先に登録されたものが優先されます。こうしてツールを失わない
 よう、各 server には重複しないツール名を付けてください。

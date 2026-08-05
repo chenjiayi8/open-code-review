@@ -115,7 +115,7 @@ refactor(viewer): extract task-card rendering into helper
 open-code-review/
 ├── cmd/opencodereview/        # CLI エントリーポイント——引数解析、ディスパッチ
 ├── internal/
-│   ├── agent/                 # レビューエージェントのロジック、サブエージェントのディスパッチ
+│   ├── agent/                 # Review/scan orchestration と runner invocation
 │   ├── config/                # テンプレート、ルール、ホワイトリスト、埋め込み JSON
 │   ├── diff/                  # Git diff の解析、3 つのモード
 │   ├── gitcmd/                # Git サブプロセスランナー
@@ -156,16 +156,9 @@ make build      # バイナリがビルドできることのスモークテス�
 
 CI は push のたびに同じ一式を実行するため、予期せぬ結果になることはありません。
 
-## 新しいツールの追加
+## Runner behavior の変更
 
-ツールは 2 つの部分から成ります。
-
-1. [`internal/config/toolsconfig/tools.json`](https://github.com/alibaba/open-code-review/blob/main/internal/config/toolsconfig/tools.json)
-   内の **JSON 定義**: name、description、そして LLM が見る JSON-schema 引数。
-2. `internal/tool/definitions.go` に登録される **Go provider**（実際の実装を含む）。
-
-両方が揃って初めて、新しいツール名が機能します。既存の 6 つは[ツール](../tools/)にあり、
-テンプレートとして使えます。
+OCR review と scan の model work は selected local runner 経由で実行されます。Supported customization は `--runner`、`--runner-model`、`--timeout`、`--background`、`--rule` などの CLI flags を使ってください。Embedded runner prompt、JSON schema、permission policy の変更には source changes と tests が必要です。
 
 ## 新しいルールパターンの追加
 

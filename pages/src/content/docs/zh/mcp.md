@@ -72,7 +72,7 @@ server 实际没有提供的名字会被跳过并给出警告，因此拼写错�
 ## 名称冲突
 
 MCP 工具名与内置工具共享同一个命名空间。如果某个 server 声明的工具名与**内置/保留**
-工具（`file_read`、`code_search`、`task_done` 等）冲突，或与另一个 MCP server 已
+工具（runner reserved names 或内置 MCP 名称）冲突，或与另一个 MCP server 已
 注册的工具冲突，OCR 会**跳过**它并记录警告。先注册者胜出；为各 server 使用互不相同
 的工具名，以免因此丢失工具。
 

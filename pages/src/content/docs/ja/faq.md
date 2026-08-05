@@ -89,12 +89,7 @@ Rule: …
 
 ### あるファイルにコメントが 0 件——本当にレビューされたのか？
 
-[セッションビューア](../viewer/)（`ocr viewer`）を開き、セッションを見つけ、そのファイルの
-`main_task` レーンを確認してください。
-
-- ツール呼び出しあり + `task_done` で終了 → クリーンなレビュー。
-- ツール呼び出しあり + ループ途中で終了 → エラーカードを探してください。
-- `main_task` カードが全くない → ファイルはレビュー前にフィルタされました。上記の[フィルタリングとルール](#filtering--rules)を参照してください。
+[セッションビューア](../viewer/)（`ocr viewer`）を開いて session を確認してください。コメントが 0 件のファイルは、`reviewed_files` に含まれ validation warning がない場合だけ clean review です。coverage にない場合は、review 前に filtered されたか local runner output が incomplete だったかを確認してください。
 
 ### コメントの `start_line: 0` と `end_line: 0`
 

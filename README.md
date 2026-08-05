@@ -81,7 +81,7 @@ Open Code Review's core philosophy is to combine deterministic engineering with 
 For review steps that *must not go wrong*, engineering logic — not the language model — guarantees correctness:
 
 - **Precise file selection** — Determines exactly which files need review and which should be filtered, ensuring no important change is missed.
-- **Smart file bundling** — Groups related files into a single review unit (e.g., `message_en.properties` and `message_zh.properties` are bundled together). Each bundle runs as a sub-agent with isolated context — a divide-and-conquer strategy that stays stable on very large changesets and naturally supports concurrent review.
+- **Deterministic review selection** — Builds a manifest from the chosen diff or scan scope, applies filtering and rule matching before model work starts, and records coverage so missing files are visible instead of silently skipped.
 - **Fine-grained rule matching** — Matches review rules to each file's characteristics, keeping the model's attention sharply focused and eliminating information noise at the source. Compared to purely language-driven rule guidance, template-engine-based rule matching is more stable and predictable.
 - **External positioning and reflection modules** — Independent comment-positioning and comment-reflection modules systematically improve both the location accuracy and content accuracy of AI feedback.
 

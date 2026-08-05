@@ -4,317 +4,95 @@ sidebar:
   order: 8
 ---
 
-A walk-through of how `ocr review` actually works inside, from the moment
-you press Enter to the JSON that lands in your terminal. The goal is to
-give you enough mental model to debug behaviour, tune flags, and read
-the source code with confidence.
+A walk-through of how `ocr review` and `ocr scan` run with the local subscription runner model.
 
 ## High-level pipeline
 
 ```mermaid
 flowchart TD
-    A["<b>ocr review</b>"]
-    B["<b>bootstrap</b><br/><span style='font-size:0.85em'>Select local runner (--runner codex/claude)<br/>Load runner prompt schema and system rules</span>"]
-    C["<b>diff provider</b><br/><span style='font-size:0.85em'>git diff / ls-files / show — produce []model.Diff<br/>Modes: Workspace · Commit · Range</span>"]
-    D["<b>filter & rules</b><br/><span style='font-size:0.85em'>5-gate filter (preview.go) — drop binaries,<br/>excluded paths, unsupported extensions. Pick rule per file.</span>"]
-    E["<b>local runner invocation</b><br/><span style='font-size:0.85em'>Single read-only runner process:<br/>Review selected manifest → Structured JSON findings</span>"]
-    F["<b>output writer</b><br/><span style='font-size:0.85em'>Synchronous line-resolution & review-filter; renders text<br/>or JSON depending on --format / --audience.</span>"]
-
+    A["<b>ocr review / ocr scan</b>"]
+    B["<b>bootstrap</b><br/>Validate flags and select --runner codex/claude"]
+    C["<b>selection</b><br/>Build diff or scan manifest; apply --exclude, supported types, rules"]
+    D["<b>local runner</b><br/>Invoke one authenticated Codex or Claude process"]
+    E["<b>validation</b><br/>Validate JSON, paths, coverage, line ranges, findings"]
+    F["<b>output + session</b><br/>Write text/JSON and deterministic session events"]
     A --> B --> C --> D --> E --> F
 ```
 
-The orchestration lives in the
-[`internal/agent/`](https://github.com/alibaba/open-code-review/blob/main/internal/agent/)
-package, which spans four files: `agent.go` (main loop & dispatch),
-`compression.go` (memory compression), `preview.go` (the file filter),
-and `util.go` (helpers). Two entry points matter: `Agent.Run` (top of
-pipeline) and `Agent.dispatchSubtasks` (per-file fan-out).
+OCR is the deterministic wrapper around an installed local CLI. It chooses the file set, renders the runner prompt, starts exactly one authenticated Codex or Claude runner process for that review or scan selection, validates the structured result, and writes reproducible output/session records.
 
-## The diff provider
+Preview commands keep the same selection logic but stop before runner invocation. `ocr review --preview` is read-only and does not require `--runner` or runner login.
 
-`internal/diff/git.go` defines a `Provider` struct whose unexported
-`mode` field (of type `Mode`, an `int` enum) selects one of three modes
-that mirror the CLI flags:
+## Selection and preview
 
-| Mode | Triggered by | What it returns |
+For `ocr review`, `internal/diff/git.go` loads one of three Git selections:
+
+| Mode | Triggered by | Selection |
 |---|---|---|
-| `Workspace` | no flags | staged + unstaged + untracked changes |
-| `Commit` | `--commit <sha>` / `-c <sha>` | the changes introduced by `<sha>` (via `git show <sha>`, equivalent to the `<sha>^..<sha>` diff) |
-| `Range` | `--from <a> --to <b>` | `merge-base(a, b)..b` |
+| Workspace | no range flags | staged, unstaged, and untracked changes |
+| Commit | `--commit <sha>` | changes introduced by that commit |
+| Range | `--from <a> --to <b>` | `merge-base(a, b)..b` |
 
-Each diff carries: old/new path, old/new hunks, insertion/deletion counts,
-binary flag, and rename detection. `DiffContextLines` is fixed at **3** —
-the same default Git uses.
+For `ocr scan`, the selected scope comes from `--path` (or the repository when omitted). Both commands apply deterministic filters for binary files, user excludes, unsupported file types, built-in noisy paths, and rule matching before anything is sent to a runner.
 
-Untracked files are read from disk and treated as full-file additions so
-they're reviewed pre-commit.
-
-## The five-gate file filter
-
-Once diffs are loaded, every file passes through
-[`whyExcluded`](https://github.com/alibaba/open-code-review/blob/main/internal/agent/preview.go).
-The function returns one of:
-
-```
-binary          — file is binary
-user_exclude    — matched a pattern in your `exclude` list
-unsupported_ext — extension is not in supported_file_types.json
-default_path    — matched a built-in test-file exclude pattern
-```
-
-…or empty if the file is kept. `deleted` is **not** returned by
-`whyExcluded`; it's computed afterwards in `Preview()` when a kept
-file's diff reports `IsDeleted`. The gates run in this order:
-
-1. `binary` — binary files are dropped first.
-2. `user_exclude` — your project's `exclude` always wins.
-3. `user_include` — if the filter has include patterns **and** the file
-   matches one, it's kept immediately (returns empty), bypassing the
-   `unsupported_ext` and `default_path` gates below.
-4. `unsupported_ext` filters by extension allowlist.
-5. `default_path` is the last gate: it matches built-in **test-file**
-   exclude patterns (`**/*_test.go`, `**/*.test.{js,jsx,ts,tsx}`,
-   `**/__tests__/**`, `**/*_test.py`, `**/*_spec.rb`, `**/*.test.ets`, …).
-   Every pattern is rooted with a `**/` prefix.
-
-The noisy-directory filtering (`vendor/`, `node_modules/`, `target/`, …)
-happens earlier, at the diff-provider level, via the
-`providerDirIgnoreDirs` list in `internal/diff/git.go` — diffs for those
-directories are parsed and then stripped out by `filterDiffs` before
-they ever reach the per-file filter.
-
-Run `ocr review --preview` to see the full filter result without spending
-a token. See [Review Rules](../review-rules/#how-files-are-filtered) for
-the full algorithm.
+The selected files become a manifest. That manifest is also the coverage contract: the runner response must report completed files in `reviewed_files`, and OCR records any missing coverage in the session output.
 
 ## Local runner invocation
 
-For every file that survives filtering, OCR builds a selected-file manifest, renders the local runner prompt, and invokes one read-only Codex or Claude process. The runner must return structured JSON with every completed file in `reviewed_files`; OCR then validates paths, line ranges, and comment shape before writing output.
+Non-preview review and scan runs require a runner:
 
-The legacy per-file worker loop has been removed from the CLI runner path. Process duration is bounded with `--timeout`, and model choice is delegated to the selected runner or a per-run `--runner-model` hint.
-
-The runner prompt asks for repository reads only, a strict JSON result, and complete `reviewed_files` coverage. OCR does not expose the old per-file worker loop or runtime permission override in local runner mode.
-
-## Memory compression
-
-A long tool-use loop will eventually overflow the context window. OCR
-manages this with a **three-zone partitioning** strategy that triggers
-on a token budget defined in `MAX_TOKENS = 58888`:
-
-| Threshold | Constant | Action |
-|---|---|---|
-| 60 % of MAX_TOKENS | `tokenSoftThreshold` | Kick off **async** background compression; current loop continues uninterrupted. |
-| 80 % of MAX_TOKENS | `tokenWarningThreshold` | Run compression **synchronously** before sending the next request. |
-
-### The three zones
-
-```mermaid
-flowchart LR
-    subgraph messages["messages"]
-        direction LR
-        F["<b>frozen</b><br/>first 2 msgs<br/>(system +<br/>initial user)"]
-        C["<b>compress</b><br/>summarized<br/>into one<br/>user msg"]
-        A["<b>active</b><br/>K most recent<br/>complete<br/>rounds"]
-    end
-    F --- C --- A
+```bash
+ocr review --runner codex
+ocr scan --runner claude --path internal/agent
 ```
 
-A "round" is one assistant message plus the tool result messages that
-followed it. `partitionMessages` walks rounds from the end, keeping as
-many as fit within `(0.80 × MAX_TOKENS) - reservedTokens`. Everything
-older becomes the **compress zone**.
+Supported values are `codex` and `claude`. OCR preflights the selected CLI before the run and fails early if it is missing or not authenticated. Use `--runner-model <name>` only when you want to pass a model hint to the selected runner for this invocation.
 
-The compress zone is rendered as XML and fed to the model with the
-`MEMORY_COMPRESSION_TASK` prompt; the returned summary is appended to
-the original user message inside `<previous_review_summary>` tags.
+OCR starts one local runner process per command invocation. Scope is controlled with selection flags, and duration is bounded by the process-level `--timeout <minutes>` flag.
 
-After compression: `messages = frozen[2] + compressed_user_msg + active`.
+The runner receives a read-only review prompt with the selected manifest, rules, background context, and required JSON schema. OCR expects structured JSON findings plus `reviewed_files`; it then validates paths and line ranges against the selected diff or file content before rendering.
 
-```go
-// compression.go
-func (a *Agent) runCompression(ctx context.Context, msgs []llm.Message, filePath string) ([]llm.Message, error) {
-    part := partitionMessages(msgs, a.args.Template.MaxTokens, 0)
-    contextXML := buildMessageXML(msgs[part.frozenEnd:part.compressEnd])
-    // … call MEMORY_COMPRESSION_TASK …
-    rebuilt[1] = llm.NewTextMessage(role, currentText+
-        "\n\n<previous_review_summary>\n"+rawSummary+"\n</previous_review_summary>")
-    for i := part.compressEnd; i < len(msgs); i++ {
-        rebuilt = append(rebuilt, msgs[i])
-    }
-    return rebuilt, nil
-}
-```
+## Sessions and resume
 
-### Async vs sync
+Every run writes append-only JSONL under:
 
-The async path lets the main loop keep emitting tool calls while
-compression runs in the background; when the next token check happens, a
-ready summary is swapped in via `tryApplyPendingCompression`. If the
-ratio crosses the warning threshold before the async job finishes, the
-loop stalls and runs `runCompression` synchronously — guaranteeing the
-next request always fits.
-
-## Comment processing pipeline
-
-Every `code_comment` tool call produces one or more raw comments. They
-go through a **CommentWorkerPool** (a fixed-size goroutine pool) so the
-main tool-use loop never blocks on post-processing:
-
-1. **Line resolution** (in-worker) — `existing_code` is matched against
-   the diff using a sliding-window algorithm to compute precise
-   `start_line` / `end_line`. If matching fails, both default to `0` — a
-   `0` line range is the implicit signal for an "unanchored" comment the
-   user must locate manually (there is no stored flag; downstream
-   consumers check `start_line == 0`).
-2. **Re-location task** *(optional fallback)* — when line resolution
-   fails on a non-trivial diff, OCR runs the `RE_LOCATION_TASK` prompt
-   asking the model to re-anchor the snippet. Useful for paraphrased
-   `existing_code` strings.
-3. **Review filter** — after the main loop finishes (and the worker pool
-   drains), the `REVIEW_FILTER_TASK` LLM call inspects the collected
-   comments against the diff and removes ones that are provably
-   incorrect. Errors here are logged and ignored.
-4. **Second line-resolution pass** — once `Agent.Run` returns, the
-   top-level command re-runs `diff.ResolveLineNumbers` over the full
-   comment set (see `cmd/opencodereview/review_cmd.go`) to catch
-   comments whose `existing_code` spans multiple files or was updated by
-   the re-location step.
-5. **Render** — into text or JSON depending on `--format`.
-
-## Token budget guards
-
-Before the LLM is even called, OCR runs a fail-fast check:
-
-```go
-tokenLimit := MaxTokens * 4 / 5     // 80 %
-if countMessagesTokens(messages) > tokenLimit {
-    record warning "token_threshold_exceeded"
-    return nil      // skip this file
-}
-```
-
-This catches monstrous diffs (auto-generated lock files, refactors
-touching thousands of lines) before they cost a request. The skipped
-file is reported as a non-fatal warning in stdout and added to the JSON
-`warnings` array.
-
-A second check runs in `filterLargeDiffs`: if the diff alone exceeds
-80 % of `MAX_TOKENS` it's filtered out before the per-file dispatcher is
-even spawned.
-
-## The template & placeholders
-
-`internal/config/template/task_template.json` holds **five prompts**:
-
-| Key | Purpose |
-|---|---|
-| `PLAN_TASK` | Planning phase — produces a checklist. |
-| `MAIN_TASK` | Main review loop — emits `code_comment` calls. |
-| `MEMORY_COMPRESSION_TASK` | Summarises the compress zone. |
-| `REVIEW_FILTER_TASK` | Post-loop pass that removes provably-incorrect comments. |
-| `RE_LOCATION_TASK` | Re-anchors a comment whose `existing_code` couldn't be matched. |
-
-Each prompt is a list of `{role, prompt_file}` references that point to
-`.md` files in the template directory (e.g.
-`{"role": "system", "prompt_file": "main_task_system.md"}`). At load
-time `resolveConversation` reads those files into in-memory
-`{role, content}` messages, and template placeholders are then resolved
-per-file:
-
-| Placeholder | Replaced with |
-|---|---|
-| `{{system_rule}}` | The rule body resolved from the four-layer chain. |
-| `{{change_files}}` | Status + path of every other changed file in the PR. |
-| `{{diff}}` | This file's diff (raw `git diff` output). |
-| `{{current_file_path}}` | The new path of this file. |
-| `{{plan_guidance}}` | Output of the plan phase, or removed when plan is skipped. |
-| `{{plan_tools}}` | Plan-phase tool definitions as plain text (rendered by `formatToolDefs`), used in the `PLAN_TASK` system prompt. |
-| `{{requirement_background}}` | The `--background` flag content. |
-| `{{current_system_date_time}}` | Local timestamp for the run, formatted `YYYY-MM-DD HH:MM` (no seconds or timezone). |
-| `{{context}}` | (compression only) the XML-rendered messages to summarise. |
-| `{{path}}` | File path, used in `REVIEW_FILTER_TASK`. |
-| `{{comments}}` | Accumulated comments (JSON), used in `REVIEW_FILTER_TASK`. |
-
-The placeholder substitution lives in
-[`agent.go`](https://github.com/alibaba/open-code-review/blob/main/internal/agent/agent.go).
-The runner prompt and JSON schema are embedded in OCR. They are not CLI overrides; to change prompts or runner permissions, edit source and rebuild OCR.
-
-> **Placeholder syntax caveat.** All the placeholders above use
-> double-brace `{{…}}` syntax *except* `RE_LOCATION_TASK`, which
-> substitutes single-brace `{diff}`, `{existing_code}`, and
-> `{suggestion_content}` (see `internal/diff/relocation.go`).
-
-## Persistence
-
-Every review is written to disk as JSONL:
-
-```
+```text
 ~/.opencodereview/sessions/<encoded-repo-path>/<session-id>.jsonl
 ```
 
-The repo path is **not** base64-encoded; `encodeRepoPath` (in
-`internal/session/persist.go`) replaces `/` and `\` with `-` and `:` with
-`_` so the path is filesystem-safe.
+Session events capture the deterministic selection, prompt metadata, runner result, validation warnings, coverage status, and final comments. `--resume <session-id>` reuses the saved session state so interrupted runs can continue with the same selection and coverage accounting.
 
-Each line is one event: prompt sent, LLM response, tool call, tool
-result, comment emitted, etc. The Web UI (`ocr viewer`) reads these
-files directly — there's no database, just append-only logs. See
-[Session Viewer](../viewer/) for the UI tour and event schema.
+## Output validation
+
+Before output is shown, OCR checks that:
+
+- every finding path belongs to the selected manifest;
+- line ranges can be resolved for the selected diff or scanned file;
+- comments match the required JSON shape;
+- `reviewed_files` covers the expected manifest entries.
+
+Text output is optimized for humans. `--format json` keeps machine-readable findings, warnings, coverage, and session metadata for CI and downstream tools.
 
 ## Telemetry
 
-When telemetry is enabled the agent emits three pipeline-level spans
-(`review.run` wrapping the whole job, `diff.parse` wrapping diff
-loading, and one `subtask.execute.<file>` per reviewed file) plus a
-short-lived `event.<name>` span at each decision point (`plan.skipped`,
-`token.threshold.exceeded`, `subtask.error`, …). LLM round trips and
-tool calls are recorded only as metrics — not as spans. Prompt and
-response content is **never** attached to telemetry; the
-`OCR_CONTENT_LOGGING` flag is plumbed but currently dead. See
-[Telemetry](../telemetry/) for the full schema.
-
-## What's *not* automated
-
-A few decisions are deliberately manual:
-
-- **Endpoint discovery has no fallback.** If your config + env + rc
-  files don't yield a complete `(URL, token, model)` triple, OCR exits
-  with a non-zero code rather than guessing.
-- **Sub-agent failures are isolated, not retried.** One failing file
-  produces a warning; the rest continue. Retries belong in the wrapping
-  CI pipeline, not the agent.
-- **No cross-file reasoning.** Every file is reviewed in its own LLM
-  conversation. Cross-file questions go through `file_read_diff` /
-  `code_search` tool calls, not shared context. Findings in those
-  *other* files are also off-limits as comment targets — the
-  `main_task` prompt instructs the model to use context tools for
-  understanding only, and to ignore issues that surface in files
-  outside the current diff.
-
-These choices keep the run **deterministic per-file** and keep cost
-predictable.
+When telemetry is enabled, OCR emits pipeline-level spans for the command, diff/scan selection, runner invocation, validation, and output writing. Prompt and response content are not attached to telemetry. See [Telemetry](../telemetry/) for the current schema.
 
 ## Source-code map
-
-If you want to read along:
 
 | Concern | File |
 |---|---|
 | Top-level command dispatch | `cmd/opencodereview/main.go` |
-| `review` flag parsing | `cmd/opencodereview/flags.go` |
-| Agent orchestration & compression | `internal/agent/` (agent.go, compression.go, util.go) |
+| CLI flag parsing | `cmd/opencodereview/flags.go` |
+| Review/scan orchestration | `internal/agent/` |
 | File filter / preview | `internal/agent/preview.go` |
-| Diff loading (Git modes) | `internal/diff/git.go` |
-| Rule resolution chain | `internal/config/rules/system_rules.go` |
-| Tool registry & impls | `internal/tool/` |
+| Diff loading | `internal/diff/git.go` |
+| Rule resolution | `internal/config/rules/system_rules.go` |
 | Runner adapters | `internal/runner/` |
 | Session JSONL writer | `internal/session/persist.go` |
 | Web viewer | `internal/viewer/server.go` |
 
-See [Contributing](../contributing/) for build & test instructions.
-
 ## See Also
 
-- [Tools](../tools/) — the six tools the agent loop calls.
-- [Review Rules](../review-rules/) — how per-file rule text is resolved.
-- [Session Viewer](../viewer/) — inspect the transcripts this pipeline writes.
+- [Tools](../tools/) — runner selection, permissions, and customization boundaries.
+- [Review Rules](../review-rules/) — how rule text is resolved.
+- [Session Viewer](../viewer/) — inspect saved sessions.

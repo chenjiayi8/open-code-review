@@ -127,7 +127,7 @@ OCR 通过 OTel meter 记录数值 metric——计数与直方图，由 collecto
 | `plan.skipped` | 某文件低于 `PLAN_MODE_LINE_THRESHOLD`。 |
 | `plan.failed` | plan 阶段出错；main 循环无 plan 运行。 |
 | `token.threshold.exceeded` | 初始 prompt token > `MAX_TOKENS` 的 80 %；文件被跳过。 |
-| `subtask.error` | 某 per-file 子任务出错——以 `Error` span 状态发出。 |
+| `coverage.incomplete` | runner 输出未覆盖预期 manifest 的所有条目。 |
 
 借此可在用户察觉之前，及早发现评审质量退化并告警。
 

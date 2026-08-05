@@ -120,13 +120,7 @@ fails to match `tsx`.
 
 ### A file shows zero comments — was it actually reviewed?
 
-Open the [Session Viewer](../viewer/) (`ocr viewer`), find the session,
-and look at the file's `main_task` lane:
-
-- Tool calls present + ends in `task_done` → reviewed cleanly.
-- Tool calls present + ends mid-loop → look for an error card.
-- No `main_task` cards at all → the file was filtered out before review;
-  see [Filtering & rules](#filtering--rules) above.
+Open the [Session Viewer](../viewer/) (`ocr viewer`) and find the session. A file with zero comments was reviewed cleanly only if it appears in `reviewed_files` and has no validation warning. If it is absent from coverage, check whether it was filtered before review or whether the local runner returned incomplete output.
 
 ### Comments have `start_line: 0` and `end_line: 0`
 

@@ -120,7 +120,7 @@ generated changelog.
 open-code-review/
 ├── cmd/opencodereview/        # CLI entry point — flag parsing, dispatch
 ├── internal/
-│   ├── agent/                 # Review agent logic, sub-agent dispatch
+│   ├── agent/                 # Review/scan orchestration and runner invocation
 │   ├── config/                # Template, rules, allowlist, embedded JSON
 │   ├── diff/                  # Git diff parsing, three modes
 │   ├── gitcmd/                # Git subprocess runner
@@ -132,7 +132,6 @@ open-code-review/
 │   ├── stdout/                # Quiet-able stdout writer
 │   ├── suggestdiff/           # Suggestion diff rendering
 │   ├── telemetry/             # OpenTelemetry config + helpers
-│   ├── tool/                  # Tool registry + provider impls
 │   └── viewer/                # Embedded HTTP UI
 ├── pages/                     # WebUI marketing page (separate React app)
 ├── plugins/                   # Claude Code slash command
@@ -144,9 +143,7 @@ open-code-review/
 └── bin/                       # NPM wrapper (Node)
 ```
 
-Most contributions touch `internal/agent/`, `internal/tool/`, or
-`internal/llm/`. The CLI surface in `cmd/opencodereview/` is
-intentionally thin — flag parsing then dispatch to the agent package.
+Most contributions touch `internal/agent/`, `internal/runner/`, or CLI flag handling. The CLI surface in `cmd/opencodereview/` is intentionally thin — flag parsing then dispatch to the agent package.
 
 ## Code quality checks
 
@@ -161,18 +158,9 @@ make build      # smoke test the binary builds
 
 CI runs the same set on every push; nothing surprising.
 
-## Adding new tools
+## Changing runner behavior
 
-A tool has two parts:
-
-1. **JSON definition** in
-   [`internal/config/toolsconfig/tools.json`](https://github.com/alibaba/open-code-review/blob/main/internal/config/toolsconfig/tools.json):
-   the name, description, and JSON-schema parameters the LLM sees.
-2. **Go provider** registered in `internal/tool/definitions.go` with
-   the actual implementation.
-
-Both have to be present for a new tool name to work. See [Tools](../tools/)
-for the existing six and treat them as templates.
+OCR review and scan model work now goes through the selected local runner. Supported customization should use CLI flags such as `--runner`, `--runner-model`, `--timeout`, `--background`, and `--rule`. Changes to embedded runner prompts, JSON schemas, or permission policy require source changes plus tests.
 
 ## Adding new rule patterns
 
