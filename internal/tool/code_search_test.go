@@ -15,7 +15,7 @@ import (
 
 func TestBuildGrepArgs_WorkspaceMode(t *testing.T) {
 	p := NewCodeSearch(&FileReader{RepoDir: "/tmp", Ref: ""})
-	args := p.buildGrepArgs("myFunc", false, false, false, nil)
+	args := p.buildGrepArgs("myFunc", false, false, false, "", nil)
 
 	assertContainsInOrder(t, args, "-e", "myFunc", "--")
 	assertContains(t, args, "-i")
@@ -31,22 +31,25 @@ func TestBuildGrepArgs_WorkspaceMode(t *testing.T) {
 
 func TestBuildGrepArgs_CommitMode(t *testing.T) {
 	p := NewCodeSearch(&FileReader{RepoDir: "/tmp", Ref: "abc1234"})
-	args := p.buildGrepArgs("myFunc", false, false, false, []string{"pkg/"})
+	args := p.buildGrepArgs("myFunc", false, false, false, "abc1234", []string{"pkg/"})
 
-	assertContainsInOrder(t, args, "-e", "myFunc", "--end-of-options", "abc1234", "--", "pkg/")
+	assertContainsInOrder(t, args, "-e", "myFunc", "abc1234", "--", "pkg/")
+	assertNotContains(t, args, "--end-of-options")
 	assertNotContains(t, args, "--untracked")
 }
 
-func TestBuildGrepArgs_RefUsesEndOfOptions(t *testing.T) {
-	p := NewCodeSearch(&FileReader{RepoDir: "/tmp", Ref: "-O./pwn.sh"})
-	args := p.buildGrepArgs("myFunc", false, false, false, nil)
+func TestBuildGrepArgs_CommitRefIsPreResolvedObjectID(t *testing.T) {
+	p := NewCodeSearch(&FileReader{RepoDir: "/tmp", Ref: "ignored-raw-ref"})
+	args := p.buildGrepArgs("myFunc", false, false, false, "abc1234", nil)
 
-	assertContainsInOrder(t, args, "-e", "myFunc", "--end-of-options", "-O./pwn.sh", "--")
+	assertContainsInOrder(t, args, "-e", "myFunc", "abc1234", "--")
+	assertNotContains(t, args, "--end-of-options")
+	assertNotContains(t, args, "ignored-raw-ref")
 }
 
 func TestBuildGrepArgs_PatternStartingWithDash(t *testing.T) {
 	p := NewCodeSearch(&FileReader{RepoDir: "/tmp", Ref: ""})
-	args := p.buildGrepArgs("-myOption", false, false, false, nil)
+	args := p.buildGrepArgs("-myOption", false, false, false, "", nil)
 
 	idx := slices.Index(args, "-e")
 	if idx < 0 || idx+1 >= len(args) || args[idx+1] != "-myOption" {
@@ -56,21 +59,21 @@ func TestBuildGrepArgs_PatternStartingWithDash(t *testing.T) {
 
 func TestBuildGrepArgs_CaseSensitive(t *testing.T) {
 	p := NewCodeSearch(&FileReader{RepoDir: "/tmp", Ref: ""})
-	args := p.buildGrepArgs("foo", true, false, false, nil)
+	args := p.buildGrepArgs("foo", true, false, false, "", nil)
 
 	assertNotContains(t, args, "-i")
 }
 
 func TestBuildGrepArgs_CaseInsensitive(t *testing.T) {
 	p := NewCodeSearch(&FileReader{RepoDir: "/tmp", Ref: ""})
-	args := p.buildGrepArgs("foo", false, false, false, nil)
+	args := p.buildGrepArgs("foo", false, false, false, "", nil)
 
 	assertContains(t, args, "-i")
 }
 
 func TestBuildGrepArgs_PerlRegexp(t *testing.T) {
 	p := NewCodeSearch(&FileReader{RepoDir: "/tmp", Ref: ""})
-	args := p.buildGrepArgs("foo", false, true, false, nil)
+	args := p.buildGrepArgs("foo", false, true, false, "", nil)
 
 	assertContains(t, args, "-P")
 	assertNotContains(t, args, "-F")
@@ -78,7 +81,7 @@ func TestBuildGrepArgs_PerlRegexp(t *testing.T) {
 
 func TestBuildGrepArgs_FixedString(t *testing.T) {
 	p := NewCodeSearch(&FileReader{RepoDir: "/tmp", Ref: ""})
-	args := p.buildGrepArgs("foo", false, false, false, nil)
+	args := p.buildGrepArgs("foo", false, false, false, "", nil)
 
 	assertContains(t, args, "-F")
 	assertNotContains(t, args, "-E")
@@ -577,7 +580,7 @@ func TestGitGrep_Timeout(t *testing.T) {
 
 func TestBuildGrepArgs_NoIndex(t *testing.T) {
 	p := NewCodeSearch(&FileReader{RepoDir: "/tmp", Ref: ""})
-	args := p.buildGrepArgs("foo", false, false, true, nil)
+	args := p.buildGrepArgs("foo", false, false, true, "", nil)
 
 	assertContains(t, args, "--no-index")
 	assertContains(t, args, "--exclude-standard")
