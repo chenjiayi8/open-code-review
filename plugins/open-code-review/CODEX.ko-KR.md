@@ -30,7 +30,7 @@ ocr version
 OCR은 로컬 구독 runner를 사용합니다. Codex 또는 Claude CLI에 먼저 로그인하세요.
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ```
 
 비 preview 리뷰를 실행할 때는 `--runner codex` 또는 `--runner claude`가 필요합니다.

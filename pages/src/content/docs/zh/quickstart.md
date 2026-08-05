@@ -24,7 +24,7 @@ ocr version
 OCR 将 LLM 工作交给已安装的本地 CLI。订阅认证由本地 CLI 负责；OCR 不保存 runner 凭据。
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```

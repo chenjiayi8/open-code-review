@@ -24,7 +24,7 @@ ocr version
 OCR は LLM 作業をインストール済みのローカル CLI に委任します。サブスクリプション認証はローカル CLI が管理し、OCR はプロバイダー API キーを設定・使用しません。
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```

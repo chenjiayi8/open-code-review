@@ -180,6 +180,9 @@ func runExecCommand(ctx context.Context, executable string, args []string, stdin
 			message = err.Error()
 		}
 		message = redactRunnerFailure(message, env)
+		if nativeAuthFailure(message) {
+			return nil, fmt.Errorf("%w: runner command %s failed: %s", ErrUnauthenticated, executable, message)
+		}
 		return nil, fmt.Errorf("runner command %s failed: %s", executable, message)
 	}
 	return out, nil
@@ -202,6 +205,34 @@ func redactRunnerFailure(message string, env []string) string {
 func sensitiveNativeEnv(name string) bool {
 	upper := strings.ToUpper(name)
 	return strings.Contains(upper, "KEY") || strings.Contains(upper, "TOKEN") || strings.Contains(upper, "SECRET") || strings.Contains(upper, "AUTH") || strings.Contains(upper, "CREDENTIAL") || strings.Contains(upper, "BASE_URL")
+}
+
+func nativeAuthFailure(message string) bool {
+	lower := strings.ToLower(message)
+	for _, marker := range []string{
+		"not logged in",
+		"login required",
+		"log in to",
+		"please login",
+		"please log in",
+		"not authenticated",
+		"authentication required",
+		"auth required",
+		"unauthorized",
+		"could not authenticate",
+		"invalid api key",
+		"missing api key",
+		"api key required",
+		"no api key",
+		"invalid token",
+		"missing token",
+		"token expired",
+	} {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func parseClaudeResult(data []byte) (Result, error) {

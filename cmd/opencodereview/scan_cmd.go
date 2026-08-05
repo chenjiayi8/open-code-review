@@ -53,7 +53,7 @@ var scanCmd = &cobra.Command{
   # Scan multiple files
   ocr scan --runner codex --path internal/agent/agent.go,internal/diff/scan.go
 
-  # Select a local subscription runner and optional model for this run
+  # Select an authenticated local CLI runner with native auth and optional model for this run
   ocr scan --runner claude --runner-model sonnet --format json
 
   # Exclude generated files / fixtures

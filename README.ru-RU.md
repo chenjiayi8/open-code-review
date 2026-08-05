@@ -117,7 +117,7 @@ npm install -g @alibaba-group/open-code-review
 OCR запускается через установленную локальную CLI с подпиской. Сначала войдите в нужный runner; сам OCR не хранит учётные данные runner.
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```

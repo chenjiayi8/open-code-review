@@ -209,7 +209,7 @@ span はその service name で APM 配下に現れます。LLM metric は上記
     OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_COLLECTOR_URL }}
     OTEL_SERVICE_NAME: open-code-review-ci
   run: |
-    codex login                 # or: claude auth login --claudeai
+    codex login                 # or use the runner's supported API-token auth
     ocr review --runner codex --from origin/main --to HEAD --audience agent
 ```
 

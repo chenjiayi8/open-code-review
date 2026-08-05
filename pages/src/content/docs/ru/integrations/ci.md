@@ -141,7 +141,7 @@ curl -o .github/workflows/ocr-review.yml \
 
 #### Runner timeout
 
-`--timeout <minutes>` ограничивает весь local runner process. Для крупных PR сужайте selection через review ranges, `--exclude` или path-limited scans, чтобы не расходовать quota выбранной runner subscription:
+`--timeout <minutes>` ограничивает весь local runner process. Для крупных PR сужайте selection через review ranges, `--exclude` или path-limited scans, чтобы не расходовать quota выбранной runner quota:
 
 ```yaml
 - name: Run OCR review

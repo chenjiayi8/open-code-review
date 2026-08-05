@@ -125,7 +125,7 @@ func resolveWorkingDir(input string, requireGit bool) (string, bool, error) {
 
 // runnerRuntime bundles the local-runner-side state both subcommands need once
 // they've decided to actually run a session. It loads only non-secret app
-// settings that still apply to local subscription runners.
+// settings that still apply to native-authenticated local CLI runners with native auth.
 type runnerRuntime struct {
 	Runner        *localrunner.Runner
 	RunnerKind    string

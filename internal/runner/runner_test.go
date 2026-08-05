@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -42,6 +43,24 @@ func TestRunExecCommandRedactsSecretsFromFailureStderr(t *testing.T) {
 	}
 	if !strings.Contains(message, "[redacted]") {
 		t.Fatalf("error did not include redaction marker: %s", message)
+	}
+}
+
+func TestRunExecCommandClassifiesNativeAuthenticationFailure(t *testing.T) {
+	env := []string{"CODEX_API_KEY=codex-secret-sentinel"}
+	_, err := runExecCommand(context.Background(), "/bin/sh", []string{"-c", `printf '%s\n' 'Not logged in. Run the native CLI auth flow.' 'CODEX_API_KEY=codex-secret-sentinel' >&2; exit 1`}, nil, env, "")
+	if err == nil {
+		t.Fatal("expected command failure")
+	}
+	if !errors.Is(err, ErrUnauthenticated) {
+		t.Fatalf("error = %v, want ErrUnauthenticated", err)
+	}
+	message := err.Error()
+	if !strings.Contains(message, "runner native command authentication failed") || !strings.Contains(message, "Not logged in") {
+		t.Fatalf("error = %q, want native-auth diagnostic with sanitized runner output", message)
+	}
+	if strings.Contains(message, "codex-secret-sentinel") {
+		t.Fatalf("error leaked auth env value: %s", message)
 	}
 }
 
@@ -114,6 +133,35 @@ func TestRunDoesNotIssueAuthStatusCommand(t *testing.T) {
 	})
 	if len(calls) == 0 || calls[0][0] != "exec" {
 		t.Fatalf("calls = %#v, want first command to start with codex exec", calls)
+	}
+}
+
+func TestRunPropagatesNativeAuthFailureWithoutStatusCommand(t *testing.T) {
+	repo := t.TempDir()
+	calls := make([][]string, 0, 1)
+	r := &Runner{
+		kind:     Codex,
+		lookPath: func(string) (string, error) { return "/usr/bin/codex", nil },
+		runCommand: func(_ context.Context, _ string, args []string, _ []byte, _ []string, _ string) ([]byte, error) {
+			calls = append(calls, append([]string(nil), args...))
+			return nil, fmt.Errorf("%w: runner command /usr/bin/codex failed: Not logged in", ErrUnauthenticated)
+		},
+		environ: func() []string { return []string{"CODEX_API_KEY=codex-secret-sentinel"} },
+	}
+
+	_, err := r.Run(context.Background(), Request{
+		Operation:  Review,
+		Repository: repo,
+		Files:      []File{{Path: "src/a.go", Rule: "review"}},
+	})
+	if !errors.Is(err, ErrUnauthenticated) {
+		t.Fatalf("Run error = %v, want ErrUnauthenticated", err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "runner native command authentication failed") || !strings.Contains(err.Error(), "Not logged in") {
+		t.Fatalf("Run error = %v, want native-auth diagnostic", err)
+	}
+	if len(calls) != 1 || calls[0][0] != "exec" {
+		t.Fatalf("calls = %#v, want only codex exec command and no auth/status probe", calls)
 	}
 }
 

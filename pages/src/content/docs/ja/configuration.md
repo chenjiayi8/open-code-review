@@ -11,7 +11,7 @@ OCR は runner 資格情報やプロバイダー接続設定を保存しませ�
 OCR で使う CLI に先にログインします。
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```

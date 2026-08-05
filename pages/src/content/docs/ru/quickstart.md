@@ -24,7 +24,7 @@ ocr version
 OCR передает LLM-работу установленной локальной CLI. Подписочной аутентификацией владеет локальная CLI; OCR не хранит учётные данные runner.
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```

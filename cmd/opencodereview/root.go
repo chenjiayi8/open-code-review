@@ -13,7 +13,7 @@ var rootCmd = &cobra.Command{
 	Long: `OpenCodeReview - AI-Powered Code Review CLI
 
 An AI-powered code review tool that reads git diffs, sends them to a
-local subscription runner, and generates review comments.`,
+authenticated local CLI with native auth, and generates review comments.`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
