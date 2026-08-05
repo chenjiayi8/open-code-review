@@ -4,11 +4,11 @@ sidebar:
   order: 6
 ---
 
-ローカルサブスクリプション runner を使うレビューコマンドのリファレンスです。
+ローカル runner を使うレビューコマンドのリファレンスです。
 
 ## 認証
 
-OCR は runner 資格情報やプロバイダー接続設定を管理しません。先にインストール済み runner CLI にログインします。
+OCR は runner 資格情報やプロバイダー接続設定を管理しません。先にインストール済み runner CLI を、その CLI がサポートするネイティブ方式（既存ログインまたは API トークン）で認証します。
 
 ```bash
 codex login                 # or use the runner's supported API-token auth
@@ -31,7 +31,7 @@ ocr scan --runner claude --path internal/agent
 
 ## 必須 runner フラグ
 
-preview ではない `ocr review` と `ocr scan` には `--runner codex` または `--runner claude` が必須です。`--runner-model <name>` は任意で、現在の実行だけ選択した runner に渡されます。OCR は選択した runner をプリフライトし、CLI がない、または未ログインの場合はレビュー開始前に失敗します。
+preview ではない `ocr review` と `ocr scan` には `--runner codex` または `--runner claude` が必須です。`--runner-model <name>` は任意で、現在の実行だけ選択した runner に渡されます。OCR は選択した runner をプリフライトし、CLI がない、または未認証の場合はレビュー開始前に失敗します。
 
 `ocr review --preview` や `ocr scan --preview` などの読み取り専用/プリフライトコマンドは、ファイルと規則だけを検査し runner を呼び出しません。
 
@@ -58,6 +58,6 @@ ocr scan --preview --path internal/agent
 
 `ocr scan` は完全なファイルをレビューします。共有の出力、runner、タイムアウト、規則、除外、再開フラグに加え、`--path`、`--no-plan`、`--no-dedup`、`--no-summary` などのスキャン用トグルを受け付けます。
 
-## ローカルサブスクリプションと CI
+## ローカル runner 認証と CI
 
-ローカルログイン状態はそのマシンの Codex または Claude CLI に属します。CI ジョブでは CI 内で選択した runner を認証してください。OCR のプロバイダー資格情報設定は追加しません。
+ローカル認証状態（既存ログインまたは API トークン）はそのマシンの Codex または Claude CLI に属します。CI ジョブでは CI 内で選択した runner を認証してください。OCR のプロバイダー資格情報設定は追加しません。

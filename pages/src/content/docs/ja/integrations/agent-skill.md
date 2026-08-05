@@ -27,7 +27,7 @@ npx skills add alibaba/open-code-review --skill open-code-review
 からマニフェストを取得してプロジェクトに配置し、skills の規約を尊重するコーディング agent が次回の呼び出し時にそれをロードするようにします。skill を最新版に更新するには、このコマンドを再実行してください。
 
 > **前提条件：** 初回実行時、バイナリが `PATH` 上に存在しない場合、skill は
-> （`npm install -g @alibaba-group/open-code-review` を通じて）`ocr` CLI を自動的にインストールします——[skill が行うこと](#what-the-skill-does)を参照してください。ただし、ローカル runner は事前に認証しておく**必要があります**。skill は Codex や Claude に代わりにログインできないため、処理を止めて尋ねます。[設定](../../configuration/)を参照してください。
+> （`npm install -g @alibaba-group/open-code-review` を通じて）`ocr` CLI を自動的にインストールします——[skill が行うこと](#what-the-skill-does)を参照してください。ただし、ローカル runner は事前に認証しておく**必要があります**。skill は Codex や Claude を代わりに認証できないため、処理を止めて尋ねます。[設定](../../configuration/)を参照してください。
 
 ### 方法 2：手動コピー（システムレベル）
 
@@ -46,7 +46,7 @@ SKILL.md は一つの prompt です。呼び出し側の agent がそれをロ�
 
 1. **事前チェック。** `which ocr` を実行して CLI が `PATH` 上にあることを確認し、続いて `ocr review --preview` で、runner 実行前にレビュー対象を検査できることを確認します。
 2. **CLI が無ければ自動インストール。** `which ocr` が "NOT INSTALLED" を報告した場合、agent は `npm install -g @alibaba-group/open-code-review` を実行して続行します。ユーザーへの確認は行いません——これは通常のセットアップ手順とみなされます。
-3. **runner が未認証なら止めて尋ねる。** runner preflight または review が Codex/Claude の未インストールや未ログインで失敗した場合、agent は認証情報を*でっち上げません*。選択したインストール済み runner の公式ログインフローで認証するようユーザーに求めます。
+3. **runner が未認証なら止めて尋ねる。** runner preflight または review が Codex/Claude の未インストールや未認証で失敗した場合、agent は認証情報を*でっち上げません*。選択したインストール済み runner がサポートするネイティブ方式（既存ログインまたは API トークン）で認証するようユーザーに求めます。
 4. **業務コンテキストの抽出。** レビュー対象（commit、ブランチ、作業コピー）を確認し、短い `--background` 文字列を生成します。
 5. **レビューの実行。**
    `ocr review --runner codex --audience agent --background "…" [--commit | --from/--to]`

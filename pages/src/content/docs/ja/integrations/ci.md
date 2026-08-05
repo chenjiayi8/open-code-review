@@ -108,7 +108,7 @@ PR で制御可能な値は `${{ }}` を `run:` に直接展開するのでは�
 
 #### Runner timeout
 
-`--timeout <minutes>` は local runner process 全体を制限します。大きな PR では、review range、`--exclude`、または path-limited scan で selection を狭めて、選択した runner サブスクリプションの quota 消費を抑えてください。
+`--timeout <minutes>` は local runner process 全体を制限します。大きな PR では、review range、`--exclude`、または path-limited scan で selection を狭めて、選択した runner の quota 消費を抑えてください。
 
 ```yaml
 - name: Run OCR review
@@ -287,7 +287,7 @@ script:
 
 #### プッシュのたびの再レビューを避ける
 
-`only: [merge_requests]` は **MR の更新のたびに**トリガーするため、長期にわたる MR ではrunner サブスクリプションの quota を大量に消費します。GitLab にはネイティブの「作成時のみ」イベントがないため、推奨されるパターンは、レビューを実行する前に既存の OCR note を検出し、あればスキップすることです。`ocr review --runner codex` の呼び出しを Python wrapper に置き換えます。
+`only: [merge_requests]` は **MR の更新のたびに**トリガーするため、長期にわたる MR ではrunner の quota を大量に消費します。GitLab にはネイティブの「作成時のみ」イベントがないため、推奨されるパターンは、レビューを実行する前に既存の OCR note を検出し、あればスキップすることです。`ocr review --runner codex` の呼び出しを Python wrapper に置き換えます。
 
 ```python
 import json, os, sys, urllib.request

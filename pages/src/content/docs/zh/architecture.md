@@ -4,7 +4,7 @@ sidebar:
   order: 8
 ---
 
-本文说明 `ocr review` 和 `ocr scan` 在本地订阅 runner 模型下的实际运行方式。OCR 负责确定性地选择文件、渲染 runner prompt、为本次 review 或 scan 启动一个已认证的 Codex 或 Claude 本地进程、校验结构化结果，并写入可复现的 session。
+本文说明 `ocr review` 和 `ocr scan` 在本地 runner 模型下的实际运行方式。OCR 负责确定性地选择文件、渲染 runner prompt、为本次 review 或 scan 启动一个已认证的 Codex 或 Claude 本地进程、校验结构化结果，并写入可复现的 session。
 
 ## 流水线
 
@@ -15,7 +15,7 @@ sidebar:
 5. 调用一个本地 runner 进程。
 6. 校验 JSON、路径、行号、评论结构和覆盖率，然后写入 text/JSON 输出与 session。
 
-`ocr review --preview` 只运行前面的选择和过滤步骤，不调用 runner，因此不需要 `--runner` 或 runner 登录。
+`ocr review --preview` 只运行前面的选择和过滤步骤，不调用 runner，因此不需要 `--runner` 或 runner 认证。
 
 ## 本地 runner 调用
 

@@ -36,7 +36,7 @@
 
 ## Open Code Review란?
 
-Open Code Review는 AI 기반 코드 리뷰 CLI 도구입니다. Alibaba Group의 내부 공식 AI 코드 리뷰 어시스턴트에서 시작했으며, 지난 2년 동안 수만 명의 개발자에게 제공되어 수백만 건의 코드 결함을 찾아냈습니다. 대규모 환경에서 충분히 검증한 뒤 커뮤니티를 위해 오픈 소스 프로젝트로 공개했습니다. 로컬 구독 runner에 로그인하면 바로 사용할 수 있습니다.
+Open Code Review는 AI 기반 코드 리뷰 CLI 도구입니다. Alibaba Group의 내부 공식 AI 코드 리뷰 어시스턴트에서 시작했으며, 지난 2년 동안 수만 명의 개발자에게 제공되어 수백만 건의 코드 결함을 찾아냈습니다. 대규모 환경에서 충분히 검증한 뒤 커뮤니티를 위해 오픈 소스 프로젝트로 공개했습니다. Codex 또는 Claude를 설치하고 해당 CLI가 지원하는 네이티브 인증 방식(기존 로그인 또는 API 토큰)으로 인증한 뒤 `--runner`로 선택하면 바로 사용할 수 있습니다.
 
 이 도구는 Git diff를 읽고, 변경 파일을 tool-use 기능을 가진 agent를 통해 선택되고 인증된 로컬 runner로 전달한 뒤, 라인 단위 위치 정보가 포함된 구조화된 리뷰 코멘트를 생성합니다. agent는 전체 파일 내용 읽기, 코드베이스 검색, 다른 변경 파일 확인 등을 통해 맥락을 확보하고 표면적인 diff 피드백이 아닌 깊이 있는 리뷰를 수행할 수 있습니다. diff 리뷰 외에도 `ocr scan`은 전체 파일을 리뷰할 수 있어, 익숙하지 않은 코드베이스를 감사하거나 의미 있는 diff가 없는 디렉터리를 검토하는 데 유용합니다.
 
@@ -112,9 +112,9 @@ npm install -g @alibaba-group/open-code-review
 
 #### Quick Start
 
-**1. 로컬 runner 로그인**
+**1. 로컬 runner 인증**
 
-OCR은 설치된 로컬 CLI 구독을 통해 실행됩니다. 사용할 runner에 먼저 로그인하세요. OCR 자체는 runner credential을 저장하지 않습니다.
+OCR은 설치된 Codex 또는 Claude CLI를 통해 실행됩니다. 사용할 CLI를 해당 CLI가 지원하는 네이티브 방식(기존 로그인 또는 API 토큰)으로 인증하세요. OCR 자체는 runner credential을 저장하지 않습니다.
 
 ```bash
 codex login                 # or use the runner's supported API-token auth
@@ -124,7 +124,7 @@ ocr scan --runner claude --path internal/agent
 
 `--preview` 같은 read-only/preflight 명령을 제외하면 `ocr review`와 `ocr scan`에는 `--runner`가 필수입니다. 한 번의 실행에서 runner 기본 모델만 바꾸려면 `--runner-model <name>`을 선택적으로 지정하세요.
 
-로컬 설정은 [설정 가이드](https://open-codereview.ai/docs/configuration)를 참조하세요. CI 인증은 별도입니다. CI 작업에서는 OCR 자체 credential을 저장하지 말고 해당 환경에서 선택한 runner에 로그인해야 합니다.
+로컬 설정은 [설정 가이드](https://open-codereview.ai/docs/configuration)를 참조하세요. CI 인증은 별도입니다. CI 작업에서는 OCR 자체 credential을 저장하지 말고 해당 환경에서 선택한 runner를 네이티브 방식(기존 로그인 또는 API 토큰)으로 인증해야 합니다.
 
 **2. 리뷰 실행**
 
@@ -172,7 +172,7 @@ ocr delegate rule src/main.go src/handler.go
   - [OpenCode](plugins/open-code-review/opencode/README.md) — 네이티브 리뷰 도구와 슬래시 명령 설치
   - [Skill 호환 에이전트](https://open-codereview.ai/docs/agent-skill) — 이식 가능한 에이전트 스킬 설치
 - 리뷰 실행 모드 — 연동 후 리뷰 실행 방식 선택
-  - [로컬 runner 모드](https://open-codereview.ai/docs/configuration) — OCR이 인증된 Codex 또는 Claude 구독 runner를 통해 리뷰 수행
+  - [로컬 runner 모드](https://open-codereview.ai/docs/configuration) — OCR이 네이티브 인증된 Codex 또는 Claude CLI를 통해 리뷰 수행
   - [위임 모드](https://open-codereview.ai/docs/delegate) — 코딩 에이전트가 자체 모델 기능으로 직접 리뷰 수행; OCR runner 설정 불필요
 - [CI/CD 연동](https://open-codereview.ai/docs/cicd) — GitHub Actions, GitLab CI, GitFlic CI, Gerrit 통합
 - [세션 뷰어](https://open-codereview.ai/docs/viewer) — 브라우저에서 리뷰 세션 탐색 및 재생
