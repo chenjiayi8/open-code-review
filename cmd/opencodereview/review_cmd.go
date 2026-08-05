@@ -43,7 +43,7 @@ var reviewCmd = &cobra.Command{
 	Use:     "review [flags]",
 	Aliases: []string{"r"},
 	Short:   "Start a diff-based code review",
-	Long:    "OpenCodeReview - AI-Powered Code Review CLI\n\nStart a diff-based code review using a local subscription runner.",
+	Long:    "OpenCodeReview - AI-Powered Code Review CLI\n\nStart a diff-based code review using an authenticated local CLI runner with native auth.",
 	Args:    cobra.NoArgs,
 	Example: `  # Review staged + unstaged + untracked changes in current workspace
   ocr review --runner codex
@@ -62,7 +62,7 @@ var reviewCmd = &cobra.Command{
   ocr review --runner codex --format json
   ocr review --runner codex -f json
 
-  # Select a local subscription runner and optional model for this run
+  # Select an authenticated local CLI runner with native auth and optional model for this run
   ocr review --runner codex --runner-model gpt-5-codex --format json
 
   # Agent mode (summary only, no progress lines)

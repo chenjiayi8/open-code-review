@@ -11,7 +11,7 @@ sidebar:
 OCR は runner 資格情報やプロバイダー接続設定を管理しません。先にインストール済み runner CLI にログインします。
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```

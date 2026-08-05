@@ -255,7 +255,7 @@ Inject the env in your pipeline step:
     OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_COLLECTOR_URL }}
     OTEL_SERVICE_NAME: open-code-review-ci
   run: |
-    codex login                 # or: claude auth login --claudeai
+    codex login                 # or use the runner's supported API-token auth
     ocr review --runner codex --from origin/main --to HEAD --audience agent
 ```
 

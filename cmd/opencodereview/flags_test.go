@@ -134,3 +134,25 @@ func TestReviewExamplesRequireRunnerForRealExecution(t *testing.T) {
 		}
 	}
 }
+
+func TestCLIHelpUsesNativeLocalRunnerWording(t *testing.T) {
+	combined := strings.Join([]string{
+		rootCmd.Long,
+		reviewCmd.Long,
+		reviewCmd.Example,
+		scanCmd.Long,
+		scanCmd.Example,
+		reviewCmd.Flags().Lookup("runner").Usage,
+		scanCmd.Flags().Lookup("runner").Usage,
+	}, "\n")
+	for _, forbidden := range []string{"subscription", "ChatGPT", "claude.ai", "claude auth login --claudeai"} {
+		if strings.Contains(combined, forbidden) {
+			t.Fatalf("CLI help contains %q:\n%s", forbidden, combined)
+		}
+	}
+	for _, want := range []string{"authenticated local CLI", "native", "codex or claude"} {
+		if !strings.Contains(combined, want) {
+			t.Fatalf("CLI help missing %q:\n%s", want, combined)
+		}
+	}
+}

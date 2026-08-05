@@ -11,7 +11,7 @@ sidebar:
 OCR не управляет учётными данными runner или настройками подключения провайдера. Сначала войдите в установленную CLI runner:
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```

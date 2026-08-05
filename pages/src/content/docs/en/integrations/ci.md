@@ -142,7 +142,7 @@ See [Review Rules](../../review-rules/) for the schema.
 
 #### Runner timeout
 
-Use `--timeout <minutes>` to bound the overall local runner process. For large PRs, narrow scope with review ranges, `--exclude`, or path-limited scans if your selected runner subscription hits quota limits:
+Use `--timeout <minutes>` to bound the overall local runner process. For large PRs, narrow scope with review ranges, `--exclude`, or path-limited scans if your selected selected runner reports quota limits:
 
 ```yaml
 - name: Run OCR review

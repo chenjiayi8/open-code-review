@@ -11,7 +11,7 @@ sidebar:
 OCR 不管理 runner 凭据或供应商连接设置。先登录已安装的 runner CLI：
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```

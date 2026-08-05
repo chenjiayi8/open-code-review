@@ -37,7 +37,7 @@ func addExcludeFlag(cmd *cobra.Command, target *string) {
 }
 
 func addRunnerFlags(cmd *cobra.Command, runnerName, runnerModel *string, runnerTimeout *int) {
-	cmd.Flags().StringVar(runnerName, "runner", "", "local subscription runner to use: codex or claude")
+	cmd.Flags().StringVar(runnerName, "runner", "", "authenticated local CLI runner with native auth to use: codex or claude")
 	cmd.Flags().StringVar(runnerModel, "runner-model", "", "optional model passed to the selected local runner")
 	cmd.Flags().IntVar(runnerTimeout, "timeout", 10, "local runner process timeout in minutes")
 	cmd.RegisterFlagCompletionFunc("runner", completeEnum("codex", "claude"))

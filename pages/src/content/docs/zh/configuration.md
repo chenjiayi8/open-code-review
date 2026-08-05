@@ -11,7 +11,7 @@ OCR 不再保存 runner 凭据或供应商连接设置。审查执行由本地�
 先登录要让 OCR 使用的 CLI：
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```

@@ -117,7 +117,7 @@ npm install -g @alibaba-group/open-code-review
 OCR はインストール済みのローカル CLI サブスクリプション経由で実行します。使う runner に先にログインしてください。OCR 自体は runner 資格情報を保存しません。
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```
