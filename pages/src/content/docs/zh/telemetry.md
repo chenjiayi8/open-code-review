@@ -118,18 +118,18 @@ OCR 通过 OTel meter 记录数值 metric——计数与直方图，由 collecto
 
 ### Event
 
-事件在决策点作为短生命周期的 `event.<name>` span 触发。完整列表：
+事件在决策点作为短生命周期的 `event.<name>` span 触发。已记录的兼容事件名包括：
 
 | 事件 | 含义 |
 |---|---|
-| `review.started` | diff 已加载；我们知道将评审多少文件。 |
+| `review.started` | diff 已加载，OCR 已知道范围内文件数量。 |
 | `no.files.changed` | diff 解析出零文件。 |
 | `plan.skipped` | 某文件低于 `PLAN_MODE_LINE_THRESHOLD`。 |
-| `plan.failed` | plan 阶段出错；main 循环无 plan 运行。 |
-| `token.threshold.exceeded` | 初始 prompt token > `MAX_TOKENS` 的 80 %；文件被跳过。 |
-| `coverage.incomplete` | runner 输出未覆盖预期 manifest 的所有条目。 |
+| `plan.failed` | plan 阶段出错；评审继续但不使用该 plan。 |
+| `token.threshold.exceeded` | 初始 prompt token 超过 token guard；文件被跳过。 |
+| `subtask.error` | 某个文件级 review item 出错。 |
 
-借此可在用户察觉之前，及早发现评审质量退化并告警。
+除非你安装的 OCR 版本实际导出相应名称，否则不要依赖独立的 runner、validation、output 或 coverage 事件。Coverage 通过普通命令/session 输出报告，而不是专用 telemetry event。
 
 ## 内容日志
 
@@ -252,5 +252,5 @@ OCR 导出**一切**。没有采样配置；OTel 的采样是 collector 的责�
 ## 另见
 
 - [配置](../configuration/)——`telemetry.*` 命名空间的完整 key 参考。
-- [架构](../architecture/)——每个 span 实际度量什么。
+- [架构](../architecture/)——review 和 scan 运行如何组织。
 - [OpenTelemetry 文档](https://opentelemetry.io/docs/)——collector 设置与 exporter。

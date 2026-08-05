@@ -6,8 +6,7 @@ sidebar:
 
 OCR ships with first-class **OpenTelemetry** support. Every review run
 produces structured spans, metrics, and events. Wired up to a collector,
-the data is enough to answer "what did the agent spend time on?",
-"which models cost what?", and "why did this run fail?".
+the data helps answer where review time was spent, which model labels were used, and where failures occurred.
 
 ## Overview
 
@@ -156,20 +155,18 @@ the collector aggregates downstream:
 
 ### Events
 
-Events fire as short-lived `event.<name>` spans at decision points.
-The full list:
+Events fire as short-lived `event.<name>` spans at decision points. The documented compatibility event names are:
 
 | Event | Meaning |
 |---|---|
-| `review.started` | Diffs loaded; we know how many files we'll review. |
+| `review.started` | Diffs loaded; OCR knows how many files are in scope. |
 | `no.files.changed` | The diff resolved to zero files. |
-| `selection.completed` | The review or scan manifest was resolved. |
-| `runner.failed` | The selected local runner failed before producing valid output. |
-| `token.threshold.exceeded` | Initial prompt tokens > 80 % of `MAX_TOKENS`; file skipped. |
-| `coverage.incomplete` | Runner output did not cover every expected manifest entry. |
+| `plan.skipped` | A file was below `PLAN_MODE_LINE_THRESHOLD`. |
+| `plan.failed` | The plan phase errored; the review continued without that plan. |
+| `token.threshold.exceeded` | Initial prompt tokens exceeded the configured token guard; the file was skipped. |
+| `subtask.error` | A file-level review item errored. |
 
-Use these to alert on degraded review quality long before a user
-notices.
+Do not rely on separate runner, validation, output, or coverage event names unless they appear in your installed OCR version's telemetry output. Coverage is reported through normal command/session output rather than a dedicated telemetry event.
 
 ## Content logging
 
@@ -305,7 +302,6 @@ and continues; the review still produces its normal output.
 
 - [Configuration](../configuration/) — full key reference for the
   `telemetry.*` namespace.
-- [Architecture](../architecture/) — what each span actually
-  measures.
+- [Architecture](../architecture/) — how review and scan runs are structured.
 - [OpenTelemetry docs](https://opentelemetry.io/docs/) — collector
   setup and exporters.

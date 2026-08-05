@@ -4,131 +4,65 @@ sidebar:
   order: 10
 ---
 
-`ocr viewer` は小型の組み込み HTTP サーバーで、過去のレビューセッションをブラウザで扱いやすい UI でレンダリングします。
-外部依存はありません——セッションは、OCR が各レビュー中にディスクに書き込む JSONL ファイルから直接読み取られます。
+`ocr viewer` は `~/.opencodereview/sessions/` に保存された review sessions を browser-friendly UI で表示します。読み取るのは local JSONL session files だけで、GitHub、GitLab、Codex、Claude には接続しません。
 
-## 起動
+## ビューアを起動
 
 ```bash
-ocr viewer                  # binds localhost:5483
-ocr viewer --addr :3000     # bind to all interfaces on port 3000
-ocr viewer --addr 0.0.0.0:8080   # bind on all interfaces
+ocr viewer
 ```
 
-デフォルトのアドレスは `localhost:5483` です。サーバーはフォアグラウンドで実行されます——`Ctrl+C` で停止します。セッションは各リクエスト時に
-`~/.opencodereview/sessions/` から遅延スキャンされるため、別のターミナルで実行中のレビューも、その
-JSONL ファイルが現れ次第表示されます。
+コマンドは local URL を表示し、停止するまで動き続けます。Sessions は request ごとに disk から lazy scan されるため、実行中の review は partial session として見えることがあります。
 
-> **DNS リバインディング対策。** ビューアは `Host` ヘッダーをループバックのホワイトリスト
-> （`localhost`、`127.0.0.1`、`::1`）と照合します。具体的なバインドホスト
-> （`--addr 192.168.1.10:5483` など）は自動的に追加されますが、**ワイルドカード**バインド
-> （`:3000`、`0.0.0.0`、`::`）は追加されません——この場合、LAN IP やホスト名から UI にアクセスすると
-> `forbidden host` が返されます。ワイルドカードバインドをアクセス可能にするには、
-> `OCR_VIEWER_ALLOWED_HOSTS` にカンマ区切りの許可ホスト名リストを設定します
-> （例：`OCR_VIEWER_ALLOWED_HOSTS=box.local,192.168.1.10`）。
+## Pages
 
-## 3 つのページ
-
-ビューアには 3 つの URL があります：
-
-| URL | 表示内容 |
+| Route | Purpose |
 |---|---|
-| `/` | ディスク上にセッションを持つすべてのリポジトリの一覧。 |
-| `/r/{repo}` | 単一リポジトリのセッション一覧。最新が先頭。 |
-| `/r/{repo}/{sessionID}` | 単一セッションの完全な詳細。 |
+| `/` | saved sessions を持つ repositories を一覧表示。 |
+| `/r/{repo}` | 1 repository の sessions を新しい順に一覧表示。 |
+| `/r/{repo}/{sessionID}` | 1 つの saved session を表示。 |
 
-`{repo}` はパスエンコードされた文字列です（区切り文字 `/` と `\` は `-` に、コロンは
-`_` に置換されます——ディスク上のディレクトリ命名と同じエンコード）。通常は手動で入力することはなく——クリックして遷移します。
+Session detail は実際に永続化された records に基づきます。
 
-### `/`——リポジトリ一覧
+- `session_start` records は repo、branch、mode、range、model、start time を提供します。
+- `review_item_done`、`review_item_reused`、`review_item_failed` records は file ごとの completion、reused prior results、failures、comment counts を提供します。
+- 最終 `session_end` record には `run_manifest` が埋め込まれることがあります。manifest 対応 review sessions では、これが selected/completed/reused/failed/waived coverage summary の authoritative source です。
 
-少なくとも 1 件のセッションを持つ各リポジトリについて、リポジトリパス、総セッション数、最新のアクティビティのタイムスタンプを表示します。
+Viewer は session/coverage browser として扱ってください。Partial または interrupted run では、存在する場合は `session_end` manifest を優先し、なければ item records を legacy checkpoint evidence として使います。
 
-### `/r/{repo}`——単一リポジトリのセッション一覧
+## Common checks
 
-各セッションについて：ID（UUID）、ブランチ名（OCR が検出できた場合）、レビューモード、モデル、ファイル数、
-所要時間、開始タイムスタンプ。
+### コメントがないファイル
 
-### `/r/{repo}/{sessionID}` — Session detail
+その file が session items で completed/reused として表示されるか、`run_manifest` で completed/reused に計上されているか確認します。Selected file が failed として表示される、または manifest-backed `session_end` から欠けている場合は、clean ではなく incomplete として扱います。
 
-The detail page shows the important records for the local runner model:
+### Run が中断された
 
-1. **Header** — diff range, runner, branch, duration, and session id.
-2. **Selection** — the review or scan manifest plus filter/exclusion results.
-3. **Runner** — invocation metadata and raw structured output from the selected local Codex or Claude runner.
-4. **Validation** — JSON-shape, path, line-range, and `reviewed_files` coverage warnings.
-5. **Comments** — final comments after OCR validation.
+`session_end` のない JSONL は partial です。`ocr review --resume <session-id>` を使うか、item records を見て checkpoint 済み files を確認します。
 
-The page is organized around one local runner invocation and the deterministic validation that follows it. When you need exact evidence, the JSONL session is the source of truth.
+### Programmatic output
 
-## ユースケース
+CI や dashboards には `ocr review --runner codex --format json --audience agent` または `ocr session show --json <session-id>` を優先してください。Viewer は humans 向けに local session evidence を render します。
 
+## Storage layout
 
-ビューアは 3 つのワークフローを想定して設計されています：
-
-### 「なぜモデルはこう言ったのか？」
-
-ターミナル出力であるコメントを開き、ビューアでそのファイルを見つけ、その runner / validation recordsを下にたどります。
-**runner invocation**の中に、あなたが気にしている comment を含むカードこそが、それを生み出したラウンドです。カードの
-Response にはモデルの推論が表示されます。モデルに送信された prompt + コンテキストを正確に知るには、JSONL トランスクリプトで
-そのリクエスト番号の `llm_request` レコード（その `messages` フィールド）を開いてください。
-
-### 「なぜこのファイルは沈黙しているのか？」
-
-**コメントのない**ファイルは、モデルが*能動的に* reviewed_files を呼び出した場合にのみ成功したレビューです。スイムレーンに
-runner invocationはあるが comment がない場合、それはモデルが能動的に下したクリーンなレビューです。スイムレーンがエラーカードで終わっている場合、それは
-沈黙を装った失敗です——警告として扱うべきです。
-
-### 「圧縮は何を保持 / 破棄したのか？」
-
-`memory_compression_task` スイムレーンは各圧縮ラウンドを表示します。その中で、Response ペインには結果の要約があり、
-圧縮された compress 領域からレンダリングされた XML は、そのラウンドの `llm_request` の `messages`（JSONL トランスクリプト内）にあります。
-「モデルが以前のコンテキストを忘れた」というフィードバックの調査に有用です——圧縮が関連する詳細を破棄したかどうかを確認できます。
-
-## ディスクのストレージレイアウト
-
-ビューアは以下を読み取ります：
-
-```
+```text
 ~/.opencodereview/sessions/
-└── <path-encoded-repo-path>/
-    └── <session-id>.jsonl
+  <encoded-repo-path>/
+    <session-id>.jsonl
 ```
 
-JSONL ファイルの各行は 1 つのイベントです：
+Representative JSONL records:
 
 ```json
-{"type": "llm_request", "filePath": "src/foo.go", "taskType": "runner", "request_no": 1, "messages": [{"role": "user", "content": "Review this diff…"}], "timestamp": "2026-06-02T10:15:23Z"}
-{"type": "llm_response", "filePath": "src/foo.go", "taskType": "runner", "model": "claude-sonnet-4-6", "content": "Found 2 issues…", "duration_ms": 8421, "usage": {"prompt_tokens": 12450, "completion_tokens": 320}}
-{"type": "tool_call", "filePath": "src/foo.go", "tool_name": "file_read", "arguments": "{\"file_path\":\"src/foo.go\",\"start_line\":1,\"end_line\":50}", "result": "File: src/foo.go (Total lines: 220)\nIS_TRUNCATED: false\nLINE_RANGE: 1-50\n1|package foo…", "ok": true, "duration_ms": 14}
+{"type":"review_item_done","filePath":"src/foo.go","comments":[{"path":"src/foo.go","content":"..."}]}
+{"type":"review_item_failed","filePath":"src/bar.go","error":"runner timeout"}
+{"type":"session_end","run_manifest":{"selected_count":2,"completed_count":1,"failed_count":1}}
 ```
 
-行は追記専用（append-only）です——不完全な JSONL は、セッションが実行中に中断されたことを意味し、ビューアは書き込み済みの
-内容をレンダリングします。
+Disk space を空けるには session files 全体を削除してください。Viewer は残った files から index を再構築します。
 
-ディスク容量を解放するには、セッションファイル全体を削除します。ビューアは次のリクエスト時にインデックスを再構築します。
+## See Also
 
-## プライバシー
-
-JSONL トランスクリプトには、LLM に送信され LLM から受信した**すべて**が含まれ、diff 内のあらゆるコードも含まれます。これらは
-完全にあなたのマシンの `~/.opencodereview/` 内に存在します。OCR はそれらをどこにもアップロードしません。
-
-レビューに長期保存したくないコードが含まれる場合は、以下が可能です：
-
-- 定期的にセッションファイルを削除する、または
-- CI で `--audience agent --format json` の出力を一時的なパイプにリダイレクトし、一時的な
-  `HOME` で実行して JSONL が永続化されないようにする。
-
-OpenTelemetry exporter は別の話です——prompt の内容をエクスポートされる trace に含めない方法については
-[テレメトリ](../telemetry/)を参照してください。
-
-## ビューアが適さない場合
-
-- プログラムによる後処理（CI、ダッシュボード）には `ocr review --runner codex --format json --audience agent` を使用します。
-  ビューアは人間向けのレンダリングであり、機械向けではありません。
-- 複数セッションにまたがる grep が必要な場合は、JSONL ファイルに対して直接 `jq` を使用します。UI にはまだ検索ボックスがありません。
-
-## 関連項目
-
-- [アーキテクチャ](../architecture/)——それら 5 つのタスクタイプが内部で実際に何をするか。
-- [ツール](../tools/)——`runner` カードで目にするrunner invocation。
+- [Architecture](../architecture/) — runner selection、manifest coverage、sessions。
+- [Tools](../tools/) — runner flags と customization boundaries。
