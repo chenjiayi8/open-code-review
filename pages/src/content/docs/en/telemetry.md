@@ -163,10 +163,10 @@ The full list:
 |---|---|
 | `review.started` | Diffs loaded; we know how many files we'll review. |
 | `no.files.changed` | The diff resolved to zero files. |
-| `plan.skipped` | A file was below `PLAN_MODE_LINE_THRESHOLD`. |
-| `plan.failed` | The plan phase errored; main loop ran without a plan. |
+| `selection.completed` | The review or scan manifest was resolved. |
+| `runner.failed` | The selected local runner failed before producing valid output. |
 | `token.threshold.exceeded` | Initial prompt tokens > 80 % of `MAX_TOKENS`; file skipped. |
-| `subtask.error` | A per-file subtask errored — emitted with `Error` span status. |
+| `coverage.incomplete` | Runner output did not cover every expected manifest entry. |
 
 Use these to alert on degraded review quality long before a user
 notices.

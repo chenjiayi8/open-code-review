@@ -106,9 +106,9 @@ PR で制御可能な値は `${{ }}` を `run:` に直接展開するのでは�
 
 スキーマは[レビュールール](../../review-rules/)を参照してください。
 
-#### 並行数
+#### Runner timeout
 
-デフォルトはファイルごとに 8 つの並行サブ agent です。大きな PR では、選択した runner サブスクリプションのレート制限に抵触しないよう下げてください。
+`--timeout <minutes>` は local runner process 全体を制限します。大きな PR では、review range、`--exclude`、または path-limited scan で selection を狭めて、選択した runner サブスクリプションの quota 消費を抑えてください。
 
 ```yaml
 - name: Run OCR review
@@ -263,7 +263,7 @@ script:
       --format json --audience agent
 ```
 
-#### カスタムルールと並行数
+#### カスタムルールと runner timeout
 
 GitHub Actions のレシピと同じ引数です——`--rule` でプロジェクト固有のルールファイルを渡し、
 `--timeout` bounds the overall local runner process:

@@ -125,9 +125,9 @@ shell 解析该行 *之前* 就已把 `${{ }}` 做了文本替换，因此包含
 
 schema 见[评审规则](../../review-rules/)。
 
-#### 并发
+#### Runner timeout
 
-默认 8 个并行 per-file 子 agent。大 PR 上调低，以免触发 所选 runner 订阅速率限制：
+`--timeout <minutes>` 限制整体本地 runner 进程。大 PR 请用 review range、`--exclude` 或 path-limited scan 缩小 selection，避免过度消耗所选 runner 订阅 quota：
 
 ```yaml
 - name: Run OCR review
@@ -287,7 +287,7 @@ script:
       --format json --audience agent
 ```
 
-#### 自定义规则与并发
+#### 自定义规则与 runner timeout
 
 与 GitHub Actions 配方相同的参数——`--rule` 传项目专属规则文件，
 `--timeout` bounds the overall local runner process:

@@ -139,11 +139,9 @@ curl -o .github/workflows/ocr-review.yml \
 
 Схема описана в разделе [Правила ревью](../../review-rules/).
 
-#### Параллелизм
+#### Runner timeout
 
-По умолчанию параллельно работают 8 субагентов по отдельным файлам. Для
-крупных PR уменьшите это число, чтобы не превысить ограничения частоты запросов
-выбранной подписки runner:
+`--timeout <minutes>` ограничивает весь local runner process. Для крупных PR сужайте selection через review ranges, `--exclude` или path-limited scans, чтобы не расходовать quota выбранной runner subscription:
 
 ```yaml
 - name: Run OCR review
@@ -315,11 +313,9 @@ script:
       --format json --audience agent
 ```
 
-#### Пользовательские правила и параллелизм
+#### Пользовательские правила и runner timeout
 
-Используйте те же флаги, что и в рецепте GitHub Actions: `--rule` для файла
-файл правил проекта и `--timeout` для ограничения процесса local runner:
-(по умолчанию 8):
+Используйте те же флаги, что и в рецепте GitHub Actions: `--rule` для файла правил проекта и `--timeout` для ограничения процесса local runner:
 
 ```yaml
 script:

@@ -49,51 +49,34 @@ JSONL 文件出现就会显示。
 对每个会话：ID（一个 UUID）、分支名（OCR 能检测到时）、评审模式、模型、文件数、
 时长和开始时间戳。
 
-### `/r/{repo}/{sessionID}`——会话详情
+### `/r/{repo}/{sessionID}` — Session 详情
 
-详情页是最有用的那个。它显示：
+详情页展示本地 runner 模型下最重要的记录：
 
-1. **头部**——diff 范围、模型、分支、总 token、运行时长。
-2. **文件分组**——每个被评审文件一个块。每个文件内，五条“任务类型”泳道：
+1. **头部**——diff 范围、runner、分支、运行时长和 session id。
+2. **Selection**——本次 review 或 scan 的 manifest，以及过滤/排除结果。
+3. **Runner**——所选本地 Codex 或 Claude runner 的调用元数据与原始结构化结果。
+4. **Validation**——JSON 结构、路径、行号和 `reviewed_files` coverage warning。
+5. **Comments**——OCR 校验后最终输出的评论。
 
-| 任务类型 | 何时出现 |
-|---|---|
-| `plan_task` | 运行了 plan 阶段（文件 ≥ `PLAN_MODE_LINE_THRESHOLD`）。 |
-| `main_task` | 每个文件。主评审循环。 |
-| `review_filter_task` | 为该文件运行了评审后评论过滤流程。 |
-| `memory_compression_task` | active+compress 区超过 60 % / 80 % 预算。 |
-| `re_location_task` | 某条 `code_comment` 无法锚定，回退重新定位运行。 |
-
-每条泳道是**任务卡片**的水平条带——每个 LLM 往返一张。卡片按任务类型着色，让你
-一眼看出哪些阶段主导了运行。
-
-## 任务卡片里有什么
-
-点击任务卡片展开。每张卡片有：
-
-- 一行**头部**——请求号、模型徽章、token 徽章（`P:` prompt / `C:` completion，
-  存在时还显示 `CR:` / `CW:` 缓存读写）、时长徽章，以及该轮失败时的错误徽章；
-- **Response**——原始 assistant 响应，包括任何推理 / `thinking` 块；
-- **Tool calls**——每个工具调用及其参数 + 返回结果（可折叠）。
-
-发给模型的完整消息列表和作用域内工具定义**不**在卡片 UI 中渲染；如需要，可直接
-检查 JSONL 转录（每条 `llm_request` 记录的 `messages` 字段）。
+详情页围绕一次本地 runner 调用和随后的确定性校验组织。需要精确证据时，JSONL session 是 source of truth。
 
 ## 使用场景
+
 
 查看器围绕三个工作流设计：
 
 ### “模型为什么这么说？”
 
-在终端输出中打开一条评论，在查看器中定位该文件，沿着它的 `main_task` 泳道向下查看。
-**工具调用**中包含你关心的 `code_comment` 的那张卡片，就是产出它的那一轮。卡片的
+在终端输出中打开一条评论，在查看器中定位该文件，沿着它的 runner / validation records向下查看。
+**runner 调用**中包含你关心的 comment 的那张卡片，就是产出它的那一轮。卡片的
 Response 显示模型推理；要确切知道发给模型的 prompt + 上下文，在 JSONL 转录中
 打开该请求号的 `llm_request` 记录（其 `messages` 字段）。
 
 ### “这个文件为什么静默？”
 
-一个**无评论**的文件，只有当模型*主动*调用 `task_done` 时才是成功评审。若泳道
-显示工具调用但无 `code_comment`，那是模型主动给出的干净评审。若泳道以错误卡片结束，那是
+一个**无评论**的文件，只有当模型*主动*调用 reviewed_files 时才是成功评审。若泳道
+显示runner 调用但无 comment，那是模型主动给出的干净评审。若泳道以错误卡片结束，那是
 伪装成静默的失败——应作为警告处理。
 
 ### “压缩保留 / 丢弃了什么？”
@@ -115,8 +98,8 @@ Response 显示模型推理；要确切知道发给模型的 prompt + 上下文�
 JSONL 文件每行是一个事件：
 
 ```json
-{"type": "llm_request", "filePath": "src/foo.go", "taskType": "main_task", "request_no": 1, "messages": [{"role": "user", "content": "Review this diff…"}], "timestamp": "2026-06-02T10:15:23Z"}
-{"type": "llm_response", "filePath": "src/foo.go", "taskType": "main_task", "model": "claude-sonnet-4-6", "content": "Found 2 issues…", "duration_ms": 8421, "usage": {"prompt_tokens": 12450, "completion_tokens": 320}}
+{"type": "llm_request", "filePath": "src/foo.go", "taskType": "runner", "request_no": 1, "messages": [{"role": "user", "content": "Review this diff…"}], "timestamp": "2026-06-02T10:15:23Z"}
+{"type": "llm_response", "filePath": "src/foo.go", "taskType": "runner", "model": "claude-sonnet-4-6", "content": "Found 2 issues…", "duration_ms": 8421, "usage": {"prompt_tokens": 12450, "completion_tokens": 320}}
 {"type": "tool_call", "filePath": "src/foo.go", "tool_name": "file_read", "arguments": "{\"file_path\":\"src/foo.go\",\"start_line\":1,\"end_line\":50}", "result": "File: src/foo.go (Total lines: 220)\nIS_TRUNCATED: false\nLINE_RANGE: 1-50\n1|package foo…", "ok": true, "duration_ms": 14}
 ```
 
@@ -148,4 +131,4 @@ OpenTelemetry exporter 是另一回事——如何让 prompt 内容不进入导�
 ## 另见
 
 - [架构](../architecture/)——那五种任务类型在底层实际做什么。
-- [工具](../tools/)——你在 `main_task` 卡片中会看到的工具调用。
+- [工具](../tools/)——你在 `runner` 卡片中会看到的runner 调用。

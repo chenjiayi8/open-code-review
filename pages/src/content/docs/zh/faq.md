@@ -85,12 +85,7 @@ Rule: …
 
 ### 某文件显示零评论——它真的被评审了吗？
 
-打开[会话查看器](../viewer/)（`ocr viewer`），找到会话，看该文件的
-`main_task` 泳道：
-
-- 有工具调用 + 以 `task_done` 结束 → 干净评审。
-- 有工具调用 + 循环中途结束 → 找错误卡片。
-- 完全没有 `main_task` 卡片 → 文件评审前被过滤；见上方[过滤与规则](#filtering--rules)。
+打开[会话查看器](../viewer/)（`ocr viewer`）并找到对应 session。零评论文件只有在出现在 `reviewed_files` 且没有 validation warning 时才表示干净评审。如果 coverage 中缺失，请检查它是评审前被过滤，还是本地 runner 返回了不完整输出。
 
 ### 评论的 `start_line: 0` 和 `end_line: 0`
 

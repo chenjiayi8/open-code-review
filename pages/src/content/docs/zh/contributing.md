@@ -115,7 +115,7 @@ refactor(viewer): extract task-card rendering into helper
 open-code-review/
 ├── cmd/opencodereview/        # CLI 入口——参数解析、分发
 ├── internal/
-│   ├── agent/                 # 评审 agent 逻辑、子 agent 分发
+│   ├── agent/                 # Review/scan 编排与 runner 调用
 │   ├── config/                # 模板、规则、白名单、内嵌 JSON
 │   ├── diff/                  # Git diff 解析、三种模式
 │   ├── gitcmd/                # Git 子进程运行器
@@ -155,15 +155,9 @@ make build      # smoke test the binary builds
 
 CI 在每次推送时运行同一套，不会有意外。
 
-## 添加新工具
+## 修改 runner 行为
 
-一个工具有两部分：
-
-1. [`internal/config/toolsconfig/tools.json`](https://github.com/alibaba/open-code-review/blob/main/internal/config/toolsconfig/tools.json)
-   中的 **JSON 定义**：name、description 与 LLM 看到的 JSON-schema 参数。
-2. 在 `internal/tool/definitions.go` 注册的 **Go provider**，含实际实现。
-
-两者都存在，新工具名才能工作。现有六个见[工具](../tools/)，可当作模板。
+OCR review 和 scan 的模型工作现在通过所选本地 runner 执行。支持的定制应使用 `--runner`、`--runner-model`、`--timeout`、`--background` 和 `--rule` 等 CLI 参数。修改嵌入式 runner prompt、JSON schema 或权限策略需要源码变更和测试。
 
 ## 添加新规则模式
 

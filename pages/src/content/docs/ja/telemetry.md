@@ -127,7 +127,7 @@ OCR は OTel meter を通じて数値 metric を記録します——カウン�
 | `plan.skipped` | あるファイルが `PLAN_MODE_LINE_THRESHOLD` を下回った。 |
 | `plan.failed` | plan フェーズでエラー。main ループは plan なしで実行される。 |
 | `token.threshold.exceeded` | 初期 prompt token が `MAX_TOKENS` の 80 % を超えた。ファイルはスキップされる。 |
-| `subtask.error` | あるファイルごとのサブタスクでエラー——`Error` span ステータスとして発行される。 |
+| `coverage.incomplete` | runner output が expected manifest entries をすべて cover しなかった。 |
 
 これにより、ユーザーが気づく前に、レビュー品質の低下を早期に検出してアラートを出すことができます。
 

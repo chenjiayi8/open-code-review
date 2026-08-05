@@ -49,51 +49,34 @@ JSONL ファイルが現れ次第表示されます。
 各セッションについて：ID（UUID）、ブランチ名（OCR が検出できた場合）、レビューモード、モデル、ファイル数、
 所要時間、開始タイムスタンプ。
 
-### `/r/{repo}/{sessionID}`——セッション詳細
+### `/r/{repo}/{sessionID}` — Session detail
 
-詳細ページが最も有用です。以下を表示します：
+The detail page shows the important records for the local runner model:
 
-1. **ヘッダー**——diff 範囲、モデル、ブランチ、合計 token、実行時間。
-2. **ファイルごとのグループ**——レビューされた各ファイルにつき 1 ブロック。各ファイル内には、5 つの「タスクタイプ」のスイムレーン：
+1. **Header** — diff range, runner, branch, duration, and session id.
+2. **Selection** — the review or scan manifest plus filter/exclusion results.
+3. **Runner** — invocation metadata and raw structured output from the selected local Codex or Claude runner.
+4. **Validation** — JSON-shape, path, line-range, and `reviewed_files` coverage warnings.
+5. **Comments** — final comments after OCR validation.
 
-| タスクタイプ | 出現条件 |
-|---|---|
-| `plan_task` | plan フェーズが実行された（ファイルが ≥ `PLAN_MODE_LINE_THRESHOLD`）。 |
-| `main_task` | すべてのファイル。メインのレビューループ。 |
-| `review_filter_task` | そのファイルに対してレビュー後のコメントフィルタリング処理が実行された。 |
-| `memory_compression_task` | active+compress 領域が予算の 60 % / 80 % を超えた。 |
-| `re_location_task` | ある `code_comment` がアンカーできず、フォールバックの再位置特定が実行された。 |
-
-各スイムレーンは**タスクカード**の水平ストリップです——LLM の往復 1 回につき 1 枚。カードはタスクタイプごとに色分けされており、
-どのフェーズが実行を支配したかを一目で把握できます。
-
-## タスクカードの中身
-
-タスクカードをクリックすると展開されます。各カードには以下があります：
-
-- 1 行の**ヘッダー**——リクエスト番号、モデルバッジ、token バッジ（`P:` prompt / `C:` completion、
-  存在する場合は `CR:` / `CW:` キャッシュの読み書きも表示）、所要時間バッジ、そしてそのラウンドが失敗した場合はエラーバッジ。
-- **Response**——生の assistant レスポンス。推論 / `thinking` ブロックも含む。
-- **Tool calls**——各ツール呼び出しとその引数 + 返された結果（折りたたみ可能）。
-
-モデルに送信された完全なメッセージリストとスコープ内のツール定義は、カード UI には**レンダリングされません**。必要な場合は、直接
-JSONL トランスクリプト（各 `llm_request` レコードの `messages` フィールド）を検査してください。
+The page is organized around one local runner invocation and the deterministic validation that follows it. When you need exact evidence, the JSONL session is the source of truth.
 
 ## ユースケース
+
 
 ビューアは 3 つのワークフローを想定して設計されています：
 
 ### 「なぜモデルはこう言ったのか？」
 
-ターミナル出力であるコメントを開き、ビューアでそのファイルを見つけ、その `main_task` スイムレーンを下にたどります。
-**ツール呼び出し**の中に、あなたが気にしている `code_comment` を含むカードこそが、それを生み出したラウンドです。カードの
+ターミナル出力であるコメントを開き、ビューアでそのファイルを見つけ、その runner / validation recordsを下にたどります。
+**runner invocation**の中に、あなたが気にしている comment を含むカードこそが、それを生み出したラウンドです。カードの
 Response にはモデルの推論が表示されます。モデルに送信された prompt + コンテキストを正確に知るには、JSONL トランスクリプトで
 そのリクエスト番号の `llm_request` レコード（その `messages` フィールド）を開いてください。
 
 ### 「なぜこのファイルは沈黙しているのか？」
 
-**コメントのない**ファイルは、モデルが*能動的に* `task_done` を呼び出した場合にのみ成功したレビューです。スイムレーンに
-ツール呼び出しはあるが `code_comment` がない場合、それはモデルが能動的に下したクリーンなレビューです。スイムレーンがエラーカードで終わっている場合、それは
+**コメントのない**ファイルは、モデルが*能動的に* reviewed_files を呼び出した場合にのみ成功したレビューです。スイムレーンに
+runner invocationはあるが comment がない場合、それはモデルが能動的に下したクリーンなレビューです。スイムレーンがエラーカードで終わっている場合、それは
 沈黙を装った失敗です——警告として扱うべきです。
 
 ### 「圧縮は何を保持 / 破棄したのか？」
@@ -115,8 +98,8 @@ Response にはモデルの推論が表示されます。モデルに送信さ�
 JSONL ファイルの各行は 1 つのイベントです：
 
 ```json
-{"type": "llm_request", "filePath": "src/foo.go", "taskType": "main_task", "request_no": 1, "messages": [{"role": "user", "content": "Review this diff…"}], "timestamp": "2026-06-02T10:15:23Z"}
-{"type": "llm_response", "filePath": "src/foo.go", "taskType": "main_task", "model": "claude-sonnet-4-6", "content": "Found 2 issues…", "duration_ms": 8421, "usage": {"prompt_tokens": 12450, "completion_tokens": 320}}
+{"type": "llm_request", "filePath": "src/foo.go", "taskType": "runner", "request_no": 1, "messages": [{"role": "user", "content": "Review this diff…"}], "timestamp": "2026-06-02T10:15:23Z"}
+{"type": "llm_response", "filePath": "src/foo.go", "taskType": "runner", "model": "claude-sonnet-4-6", "content": "Found 2 issues…", "duration_ms": 8421, "usage": {"prompt_tokens": 12450, "completion_tokens": 320}}
 {"type": "tool_call", "filePath": "src/foo.go", "tool_name": "file_read", "arguments": "{\"file_path\":\"src/foo.go\",\"start_line\":1,\"end_line\":50}", "result": "File: src/foo.go (Total lines: 220)\nIS_TRUNCATED: false\nLINE_RANGE: 1-50\n1|package foo…", "ok": true, "duration_ms": 14}
 ```
 
@@ -148,4 +131,4 @@ OpenTelemetry exporter は別の話です——prompt の内容をエクスポ�
 ## 関連項目
 
 - [アーキテクチャ](../architecture/)——それら 5 つのタスクタイプが内部で実際に何をするか。
-- [ツール](../tools/)——`main_task` カードで目にするツール呼び出し。
+- [ツール](../tools/)——`runner` カードで目にするrunner invocation。

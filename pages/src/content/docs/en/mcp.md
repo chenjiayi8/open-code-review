@@ -78,7 +78,7 @@ typo surfaces on stderr rather than silently doing nothing.
 
 MCP tool names share one namespace with the built-in tools. If a server
 advertises a tool whose name collides with a **built-in/reserved** tool
-(`file_read`, `code_search`, `task_done`, …) or with a tool already
+(runner-reserved names or built-in MCP names) or with a tool already
 registered by another MCP server, OCR **skips** it and logs a warning.
 First registration wins; give servers distinct tool names to avoid losing
 tools this way.
