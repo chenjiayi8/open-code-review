@@ -140,10 +140,9 @@ Pass a project-specific rule file with `--rule`:
 
 See [Review Rules](../../review-rules/) for the schema.
 
-#### Concurrency
+#### Runner timeout
 
-The default is 8 parallel per-file sub-agents. Lower it on large PRs
-to stay under your selected runner subscription's rate limits:
+Use `--timeout <minutes>` to bound the overall local runner process. For large PRs, narrow scope with review ranges, `--exclude`, or path-limited scans if your selected runner subscription hits quota limits:
 
 ```yaml
 - name: Run OCR review
@@ -151,7 +150,7 @@ to stay under your selected runner subscription's rate limits:
     BASE_REF: ${{ github.base_ref }}
     HEAD_REF: ${{ github.head_ref }}
   run: |
-    ocr review --runner codex --concurrency 5 \
+    ocr review --runner codex \
       --from "origin/$BASE_REF" \
       --to "origin/$HEAD_REF"
 ```
@@ -315,16 +314,15 @@ script:
       --format json --audience agent
 ```
 
-#### Custom rules and concurrency
+#### Custom rules and runner timeout
 
 Same flags as the GitHub Actions recipe — pass `--rule` for a
-project-specific rule file, and `--concurrency` to throttle parallel
-sub-agents (default 8):
+project-specific rule file, and `--timeout` to bound the local runner process:
 
 ```yaml
 script:
   - |
-    ocr review --runner codex --rule ./my-rules.json --concurrency 5 \
+    ocr review --runner codex --rule ./my-rules.json \
       --from "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" \
       --to "${CI_COMMIT_SHA}"
 ```

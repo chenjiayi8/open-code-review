@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 	"time"
 )
@@ -49,7 +50,7 @@ func TestPreflightRejectsAbsentExecutableFromInjectedLookup(t *testing.T) {
 		lookPath: func(string) (string, error) {
 			return "", ErrExecutableNotFound
 		},
-		runCommand: func(context.Context, string, []string, []byte, []string) ([]byte, error) {
+		runCommand: func(context.Context, string, []string, []byte, []string, string) ([]byte, error) {
 			t.Fatal("runCommand must not be called after lookup failure")
 			return nil, nil
 		},
@@ -66,7 +67,7 @@ func TestPreflightClassifiesTimeoutFromInjectedCommand(t *testing.T) {
 		kind:     Claude,
 		timeout:  time.Nanosecond,
 		lookPath: func(string) (string, error) { return "/usr/bin/claude", nil },
-		runCommand: func(ctx context.Context, _ string, _ []string, _ []byte, _ []string) ([]byte, error) {
+		runCommand: func(ctx context.Context, _ string, _ []string, _ []byte, _ []string, _ string) ([]byte, error) {
 			<-ctx.Done()
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 				return nil, ErrRunnerTimeout
@@ -129,5 +130,44 @@ func TestParseClaudeResultRequiresFinalSuccessEnvelope(t *testing.T) {
 				t.Fatal("expected claude envelope rejection")
 			}
 		})
+	}
+}
+
+func TestClaudeRunExecutesFromRequestRepository(t *testing.T) {
+	repo := t.TempDir()
+	processCWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+	if processCWD == repo {
+		t.Fatalf("test setup requires process cwd %q to differ from request repository", processCWD)
+	}
+	var commandCWDs []string
+	r := &Runner{
+		kind:     Claude,
+		lookPath: func(string) (string, error) { return "/usr/bin/claude", nil },
+		runCommand: func(_ context.Context, _ string, args []string, _ []byte, _ []string, cwd string) ([]byte, error) {
+			commandCWDs = append(commandCWDs, cwd)
+			if len(args) >= 3 && args[0] == "auth" {
+				return []byte(`{"loggedIn":true,"authMethod":"claude.ai"}`), nil
+			}
+			return []byte(`{"type":"result","subtype":"success","is_error":false,"result":"{\"reviewed_files\":[\"src/a.go\"],\"findings\":[]}"}`), nil
+		},
+		environ: func() []string { return nil },
+	}
+
+	_, err = r.Run(context.Background(), Request{
+		Operation:  Review,
+		Repository: repo,
+		Files:      []File{{Path: "src/a.go", Rule: "review"}},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(commandCWDs) != 2 {
+		t.Fatalf("command cwd calls = %#v, want preflight and run", commandCWDs)
+	}
+	if got := commandCWDs[1]; got != repo {
+		t.Fatalf("claude run cwd = %q, want request repository %q", got, repo)
 	}
 }

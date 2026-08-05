@@ -29,7 +29,6 @@ schema 与示例输入/输出。完整的机器可读定义位于
 > 发现的任何问题按设计都会被忽略。跨文件关切只有在**当前文件 diff**中可观测
 > 时，才会作为评论出现。
 
-要覆盖工具注册表，传入一个与内嵌定义同形的 JSON 文件路径 `--tools <path>`。
 借此可以禁用工具、编辑描述，或基于已有 provider 添加新工具。
 
 ## `task_done`
@@ -320,7 +319,6 @@ Match lines: 1
 还是调 `task_done`。
 
 若工具名不在注册表中，OCR 返回常量 `tool.NotAvailableMsg` 而不是崩溃。这使得
-（通过 `--tools`）运行时禁用工具是安全的。
 
 ## 自定义工具
 
@@ -331,7 +329,7 @@ Match lines: 1
 复制 `tools.json`，删掉不想要的条目，然后运行：
 
 ```bash
-ocr review --runner codex --tools ./my-tools.json
+ocr review --runner codex
 ```
 
 例如，想要一个从不读额外上下文的“仅评论”评审器，只保留 `code_comment` 和

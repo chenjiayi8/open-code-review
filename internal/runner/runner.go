@@ -25,7 +25,7 @@ type Identity struct {
 	AuthMethod string
 }
 
-type commandFunc func(context.Context, string, []string, []byte, []string) ([]byte, error)
+type commandFunc func(context.Context, string, []string, []byte, []string, string) ([]byte, error)
 type lookPathFunc func(string) (string, error)
 type environFunc func() []string
 
@@ -83,7 +83,7 @@ func (r *Runner) Preflight(ctx context.Context) (Identity, error) {
 	env := safeChildEnv(r.environ())
 	switch r.kind {
 	case Codex:
-		out, err := r.runCommand(runCtx, executable, []string{"login", "status"}, nil, env)
+		out, err := r.runCommand(runCtx, executable, []string{"login", "status"}, nil, env, "")
 		if err != nil {
 			return Identity{}, err
 		}
@@ -94,7 +94,7 @@ func (r *Runner) Preflight(ctx context.Context) (Identity, error) {
 		identity.Executable = executable
 		return identity, nil
 	case Claude:
-		out, err := r.runCommand(runCtx, executable, []string{"auth", "status", "--json"}, nil, env)
+		out, err := r.runCommand(runCtx, executable, []string{"auth", "status", "--json"}, nil, env, "")
 		if err != nil {
 			return Identity{}, err
 		}
@@ -143,7 +143,7 @@ func (r *Runner) Run(ctx context.Context, request Request) (Result, error) {
 
 	switch r.kind {
 	case Codex:
-		_, err := r.runCommand(runCtx, identity.Executable, codexArgs(request.Repository, schemaPath, resultPath, r.model), []byte(prompt), env)
+		_, err := r.runCommand(runCtx, identity.Executable, codexArgs(request.Repository, schemaPath, resultPath, r.model), []byte(prompt), env, request.Repository)
 		if err != nil {
 			return Result{}, err
 		}
@@ -153,7 +153,7 @@ func (r *Runner) Run(ctx context.Context, request Request) (Result, error) {
 		}
 		return ParseResult(data)
 	case Claude:
-		out, err := r.runCommand(runCtx, identity.Executable, claudeArgs(schemaPath, r.model), []byte(prompt), env)
+		out, err := r.runCommand(runCtx, identity.Executable, claudeArgs(schemaPath, r.model), []byte(prompt), env, request.Repository)
 		if err != nil {
 			return Result{}, err
 		}
@@ -186,9 +186,12 @@ func (r *Runner) withTimeout(ctx context.Context) (context.Context, context.Canc
 	return context.WithTimeout(ctx, r.timeout)
 }
 
-func runExecCommand(ctx context.Context, executable string, args []string, stdin []byte, env []string) ([]byte, error) {
+func runExecCommand(ctx context.Context, executable string, args []string, stdin []byte, env []string, cwd string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, executable, args...)
 	cmd.Env = env
+	if cwd != "" {
+		cmd.Dir = cwd
+	}
 	if stdin != nil {
 		cmd.Stdin = bytes.NewReader(stdin)
 	}

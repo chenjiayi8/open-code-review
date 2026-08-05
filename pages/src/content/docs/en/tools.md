@@ -34,9 +34,7 @@ during the plan phase: planning is read-only.
 > ignored by design. Cross-file concerns surface as comments only when
 > they're observable from the **current file's diff**.
 
-To override the tool registry, pass `--tools <path>` to a JSON file with
-the same shape as the embedded one. This lets you disable a tool, edit
-a description, or add a new tool backed by an existing provider.
+OCR no longer exposes a CLI tool-registry override. Local runner mode gives Claude a read-only `Read,Glob,Grep` permission set and Codex a read-only sandbox; changing runner prompts or permissions requires editing OCR source and rebuilding.
 
 ## `task_done`
 
@@ -351,35 +349,19 @@ the result is delivered to the model as a regular tool result with text
 like `"Error: file not found: src/missing.go"`. The model then decides
 whether to retry, ask for a different file, or call `task_done`.
 
-If a tool name isn't in the registry, OCR returns the constant
-`tool.NotAvailableMsg` rather than crashing. This makes runtime tool
-disabling (via `--tools`) safe.
+Runner permission failures are surfaced as runner errors and included in the OCR session output.
 
-## Customizing tools
+## Customizing runner behavior
 
-Two paths to extend:
+Use `--runner codex` or `--runner claude` to choose the local subscription CLI, `--runner-model <name>` to pass a per-run model hint, `--timeout <minutes>` to bound the process, and `--background`/`--rule` to supply review context. OCR does not expose a runtime permission override; changing the embedded runner prompt or permission set requires a source change and rebuild.
 
-### 1. Disable a tool
-
-Copy `tools.json`, drop the entry you don't want, then run:
+For example:
 
 ```bash
-ocr review --runner codex --tools ./my-tools.json
+ocr review --runner codex --runner-model gpt-5 --timeout 20
 ```
 
-For example, if you want a "comment-only" reviewer that never reads
-extra context, keep only `code_comment` and `task_done`.
-
-### 2. Re-describe a tool
-
-Keep the `name` (the providers are looked up by name internally) but
-change the `description` to nudge the model. This is the easiest way to
-inject project-specific guidance — e.g., "When using `file_read`,
-always read at least 30 lines around the change."
-
-> Adding **new** tool *names* requires Go-side wiring; see
-> `internal/tool/definitions.go` and the providers under
-> `internal/tool/`. The JSON file alone can't add new behaviour.
+Project-specific guidance should usually be passed through `--background` or `--rule` instead of editing runner internals.
 
 ## See Also
 

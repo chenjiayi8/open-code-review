@@ -34,37 +34,9 @@ ocr scan --runner claude --path internal/agent
 `ocr review --runner codex` 对当前目录运行 `git diff`（以及对 untracked 文件的 `git ls-files`）。
 若你不在 Git 工作树内，它会提前退出。要么 `cd` 进仓库，要么传 `--repo /path/to/repo`。
 
-### "No tool calls parsed"（本地模型 / Ollama）
+### 本地 runner 报告工具、额度或超时错误
 
-```
-[ocr] No tool calls parsed for src/foo.go, retrying...
-[ocr] Max tool requests reached for src/foo.go.
-```
-
-若每次评审都在 `No tool calls parsed` 重试中循环，最终以 "Max tool requests
-reached" 结束且没有任何评论，问题出在模型——而非配置。OCR 完全通过工具调用驱动评审，
-因此**模型必须支持原生工具调用（function calling）**。只在文本输出（或
-`<think>` 块内）*叙述*工具调用的模型，无论怎么调 prompt 都永远无法与 OCR
-配合使用——`deepseek-r1` 是常见例子。具备原生工具支持的模型（如 `qwen3`）则工作
-正常。对 Ollama，请从带 tools 标签的模型中挑选：
-<https://ollama.com/search?c=tools>。
-
-绕开 OCR、直接验证本地模型：
-
-```bash
-curl http://127.0.0.1:11434/v1/chat/completions -H "Content-Type: application/json" -d '{
-  "model": "qwen3:32b",
-  "messages": [{"role": "user", "content": "The code below has a bug, use the report_bug tool to report it.\n\nfunc add(a, b int) int {\n  return a - b\n}"}],
-  "tools": [{"type": "function", "function": {"name": "report_bug", "description": "Report a bug in the code",
-    "parameters": {"type": "object", "properties": {"line": {"type": "integer"}, "description": {"type": "string"}}, "required": ["description"]}}}]
-}'
-```
-
-通过：响应包含指向 `report_bug` 的结构化 `tool_calls` 数组。失败：“调用”以
-文本形式出现在 `content` 里。
-
-若模型*确实*支持工具，只是在本地硬件上响应缓慢，请改为调高 LLM 超时——见
-[超时](../configuration/#超时)。
+OCR 现在把模型执行交给已登录的 Codex 或 Claude CLI。若 runner 报告工具、额度、重试或超时问题，请先确认 runner 登录状态，再用 `--path`、`--exclude` 或更小的 diff 缩小范围；如果确实需要更长时间，可提高 `--timeout <minutes>`。
 
 ## 过滤与规则
 
@@ -152,39 +124,20 @@ plugin）读 `existing_code` 字段并自行在文件中定位。
 先运行 `ocr review --preview`。若文件的 `lines.changed` 超过
 `PLAN_MODE_LINE_THRESHOLD`（默认 **50**），plan 阶段会运行。这是有意为之——大
 diff 能从 plan 中受益。要为单次评审跳过它，用更小 diff 运行，或临时编辑内嵌模板
-（高级；需覆盖 `--tools`）。
+（高级；需要修改内嵌 runner prompt 并重新构建 OCR）。
 
-### "Max tool requests reached"
 
-```
-[ocr] Max tool requests reached for src/foo.go.
-```
+### 本地 runner 超时或未覆盖所有文件
 
-模型花了 30（`MAX_TOOL_REQUEST_TIMES`）轮工具调用却没调 `task_done`。到那时为
-止发出的评论仍被收集并渲染。若多数文件都这样，问题通常是：
+OCR 以 runner 返回的 `reviewed_files` 作为覆盖证据。缺失的文件会在 session 输出中标记为未完成。遇到超时时，请缩小选择范围或提高 `--timeout <minutes>`。
 
-- 模型不擅长遵循“完成后调 `task_done`”指令。换更强模型（如 Claude Opus）。
-- 某工具持续报错而模型持续重试。看会话 JSONL——若同一工具结果重复，即是原因。
-- 文件确实大或上下文重，30 轮不够。用 `--max-tools <n>` 调高或调低
-  （如 `--max-tools 40` 更多，`--max-tools 15` 更少）。1–9 会被上调到 10；
-  `0`（默认）用模板默认 30。
-- 模型完全不支持原生工具调用（本地模型常见）——见
-  ["No tool calls parsed"（本地模型 / Ollama）](#no-tool-calls-parsed-本地模型-ollama)。
+### 一些文件未完成；运行仍可能产生结果
 
-### 一些子 agent 失败；运行仍以 0 退出
-
-有意为之。OCR 隔离 per-file 失败，使一个有问题的文件不会拖垮 20 文件的评审。只要*有*
-成功的，聚合退出码就是 `0`；仅当完全失败（零成功子 agent）才非零退出。查看 JSON
-模式的 `warnings` 数组或文本模式的 stderr，看哪些文件失败了。
+OCR 会保留已成功验证的评论，并在 session/JSON 输出中记录未覆盖或失败的文件。检查 `warnings` 和 session 明细即可知道哪些路径需要重跑。
 
 ### CI 运行比本地慢得多
 
-两个常见原因：
-
-- **模型速率限制**——限流下 LLM client 退避并重试。调低 `--concurrency`
-  （如 `4`）以免一开始就触限。
-- **冷缓存**——若 provider 支持 prompt 缓存，部署后首次运行无法受益。同一窗口内
-  后续运行更快。
+CI 环境通常需要重新安装并认证所选 runner，且没有本地缓存。确认 CI job 在运行 OCR 前已登录 Codex 或 Claude；若 runner 报告 quota/timeout，请缩小范围或使用 `--timeout <minutes>`。
 
 ## 输出与集成
 
@@ -228,23 +181,11 @@ LLM 调用没有自己的 span——它们记为 metric。关注 `ocr.llm.tokens
 console exporter 会内联打印这些聚合。如需仪表盘，切换到 OTLP exporter 并发到你的
 metrics 体系——见[遥测](../telemetry/)。
 
-### 为什么我的评审这么贵？
+### 如何减少 runner 工作量？
 
-常见因素：
-
-- 文件 ≥ 50 行时 plan 阶段开启。它每文件多一次 LLM 调用。降低阈值可减少成本；升高
-  阈值可提升小 PR 的速度。
-- `MAX_TOOL_REQUEST_TIMES = 30` 很宽松。用满轮数的模型会产出比 3 轮就完成的模型
-  更长（更多 token）的对话。更强模型倾向于更快完成。反过来，若你为应对 "max tool
-  requests reached" 用 `--max-tools` 调高，预期每文件成本大致线性增长。
-- 记忆压缩本身是一次 LLM 调用。较长的子任务除评审轮外，还要为压缩轮付费。
-
-### 如何减少 LLM 调用？
-
-- 添加 `include` 列表，使 OCR 不评审你不关心的文件。
-- 若你的账户有 burst-mode 计价，调低 `--concurrency`。
-- 传 `--background`——更充分的前期上下文有时能让模型无需 `file_read` /
-  `code_search` 往返即可完成。
+- 添加 `include`/`exclude` 规则，避免评审无关文件。
+- 对大型改动使用更小的 commit、范围或 `--path`。
+- 传 `--background`，让 runner 一开始就获得必要业务上下文。
 
 ## 隐私与安全
 

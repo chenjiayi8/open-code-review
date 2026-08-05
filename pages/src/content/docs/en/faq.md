@@ -37,15 +37,10 @@ A login, subscription, quota, or permission error comes from the selected Codex 
 against the current directory. If you're not inside a Git working tree,
 it exits early. Either `cd` into a repo, or pass `--repo /path/to/repo`.
 
-### "No tool calls parsed" (local models / Ollama)
 
 ```
-[ocr] No tool calls parsed for src/foo.go, retrying...
-[ocr] Max tool requests reached for src/foo.go.
 ```
 
-If every review loops through `No tool calls parsed` retries and ends
-with "Max tool requests reached" and zero comments, the model — not the
 config — is the problem. OCR drives the review entirely through tool
 calls, so **the model must support native tool calling (function
 calling)**. A model that merely *narrates* tool calls in its text
@@ -171,50 +166,22 @@ Run `ocr review --preview` first. If the file's `lines.changed` is
 above `PLAN_MODE_LINE_THRESHOLD` (default **50**), the plan phase runs.
 That's by design — large diffs benefit from a planning pass. To skip
 it for a single review, run with a smaller diff, or temporarily edit
-the embedded template (advanced; you'll need to override `--tools`).
+the embedded template (advanced; modify the embedded runner prompt in source and rebuild OCR).
 
-### "Max tool requests reached"
+### The local runner times out or reports quota/tool limits
 
-```
-[ocr] Max tool requests reached for src/foo.go.
-```
+OCR invokes one selected local runner process for each review or scan. If that process times out or reports quota/tool-use limits, narrow the selected scope with `--path`, `--exclude`, or a smaller diff, or raise the process bound with `--timeout <minutes>`. Runner-specific retry and quota behavior belongs to the installed Codex or Claude CLI.
 
-The model spent 30 (`MAX_TOOL_REQUEST_TIMES`) tool-use rounds without
-calling `task_done`. Comments emitted up to that point are still
-collected and rendered. If this happens on most files, the issue is
-usually one of:
+### Some selected files are not reported as reviewed
 
-- Model isn't great at following the "call `task_done` when finished"
-  instruction. Switch to a stronger model (e.g., Claude Opus).
-- A tool keeps erroring and the model keeps retrying. Look at the
-  session JSONL — if the same tool result repeats, that's why.
-- The file is genuinely large or context-heavy and 30 rounds isn't
-  enough. Raise or lower the cap with `--max-tools <n>` (e.g.,
-  `--max-tools 40` for more, `--max-tools 15` for fewer). Values 1–9
-  are clamped up to 10; `0` (the default) uses the template default of
-  30.
-- The model does not support native tool calling at all (common with
-  local models) — see
-  ["No tool calls parsed" (local models / Ollama)](#no-tool-calls-parsed-local-models-ollama).
-
-### Some sub-agents fail; the run still exits 0
-
-By design. OCR isolates per-file failures so one bad file doesn't kill
-a 20-file review. The aggregate exit code is `0` if *anything*
-succeeded; only a fully-failed run (zero successful sub-agents) exits
-non-zero. Check the `warnings` array in JSON mode or stderr in text
-mode to see which files failed.
+OCR treats the runner's `reviewed_files` array as coverage evidence. Files missing from that array are marked failed/incomplete in the session output so callers can see exactly which selected paths were not reviewed.
 
 ### CI run is much slower than local
 
 Two usual suspects:
 
-- **Model rate limits** — under throttling, the LLM client backs off
-  and retries. Lower `--concurrency` (e.g., to `4`) so you don't hit
-  the limit in the first place.
-- **Cold cache** — if your provider supports prompt caching, the first
-  run after deploy doesn't benefit from it. Subsequent runs in the
-  same window are faster.
+- **Runner rate limits** — the selected local CLI reports quota or retry failures. Narrow the scope or retry after the runner account recovers.
+- **Cold cache** — if your runner supports prompt caching, the first run after deploy may not benefit from it. Subsequent runs in the same window can be faster.
 
 ## Output & integration
 
@@ -271,19 +238,13 @@ Common levers:
 - Plan phase is on for files ≥ 50 lines. It costs an extra LLM call
   per file. Lowering the threshold reduces cost; raising it improves
   small-PR speed.
-- `MAX_TOOL_REQUEST_TIMES = 30` is generous. A model that uses every
-  round will produce a longer (more tokens) conversation than one that
-  finishes in 3 rounds. Stronger models tend to finish faster.
-  Conversely, if you raised it with `--max-tools` to fight "max tool
-  requests reached", expect cost per file to grow roughly linearly.
-- Memory compression itself is an LLM call. Long subtasks pay for
-  compression rounds in addition to review rounds.
+- Larger selected scopes increase runner work roughly with the number and size of reviewed files.
+- The selected runner owns model-side caching and quota behavior; OCR does not manage API keys or per-file tool budgets.
 
 ### How do I reduce LLM calls?
 
 - Add an `include` list so OCR doesn't review files you don't care
   about.
-- Set `--concurrency` lower if your account has burst-mode pricing.
 - Pass `--background` — better context up-front sometimes lets the
   model finish without `file_read` / `code_search` round-trips.
 

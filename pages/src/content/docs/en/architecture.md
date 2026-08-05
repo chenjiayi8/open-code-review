@@ -14,10 +14,10 @@ the source code with confidence.
 ```mermaid
 flowchart TD
     A["<b>ocr review</b>"]
-    B["<b>bootstrap</b><br/><span style='font-size:0.85em'>Select local runner (--runner codex/claude)<br/>Load template, tool registry, system rules</span>"]
+    B["<b>bootstrap</b><br/><span style='font-size:0.85em'>Select local runner (--runner codex/claude)<br/>Load runner prompt schema and system rules</span>"]
     C["<b>diff provider</b><br/><span style='font-size:0.85em'>git diff / ls-files / show — produce []model.Diff<br/>Modes: Workspace · Commit · Range</span>"]
     D["<b>filter & rules</b><br/><span style='font-size:0.85em'>5-gate filter (preview.go) — drop binaries,<br/>excluded paths, unsupported extensions. Pick rule per file.</span>"]
-    E["<b>subtask dispatch</b><br/><span style='font-size:0.85em'>For every diff in parallel (concurrency=N):<br/>Plan phase (optional) → Main loop → Comments</span>"]
+    E["<b>local runner invocation</b><br/><span style='font-size:0.85em'>Single read-only runner process:<br/>Review selected manifest → Structured JSON findings</span>"]
     F["<b>output writer</b><br/><span style='font-size:0.85em'>Synchronous line-resolution & review-filter; renders text<br/>or JSON depending on --format / --audience.</span>"]
 
     A --> B --> C --> D --> E --> F
@@ -87,63 +87,13 @@ Run `ocr review --preview` to see the full filter result without spending
 a token. See [Review Rules](../review-rules/#how-files-are-filtered) for
 the full algorithm.
 
-## Per-file subtask: plan + main
+## Local runner invocation
 
-For every file that survives filtering, OCR fires a sub-agent. Each
-sub-agent runs in its own goroutine, bounded by `--concurrency` (default
-**8**), and has its own LLM message buffer.
+For every file that survives filtering, OCR builds a selected-file manifest, renders the local runner prompt, and invokes one read-only Codex or Claude process. The runner must return structured JSON with every completed file in `reviewed_files`; OCR then validates paths, line ranges, and comment shape before writing output.
 
-A subtask has up to **two phases**:
+The legacy per-file worker loop has been removed from the CLI runner path. Process duration is bounded with `--timeout`, and model choice is delegated to the selected runner or a per-run `--runner-model` hint.
 
-### Phase 1 — Plan (optional)
-
-```go
-threshold := template.PlanModeLineThreshold     // 50
-changeLines := d.Insertions + d.Deletions
-if changeLines < threshold { skip plan }
-```
-
-For small diffs the plan adds latency without value, so it's skipped
-silently and the main loop runs straight away. For larger diffs OCR
-makes a **single** `PLAN_TASK` LLM call — no `Tools` field is sent, so
-the model cannot call tools during planning. The read-only tool subset
-(`code_search`, `file_read_diff`, `file_find` — the three tools whose
-`plan_task` flag is `true` in `tools.json`) is embedded as plain text
-via the `{{plan_tools}}` placeholder (rendered by
-`formatToolDefs`) so the model knows what's available later. The model
-returns a checklist that becomes `{{plan_guidance}}`
-in the main prompt.
-
-### Phase 2 — Main loop
-
-The main loop assembles the `MAIN_TASK` prompt and runs a tool-use
-conversation with the model. The full tool set adds **`task_done`**,
-**`code_comment`**, and **`file_read`** to the plan-phase tools — see
-[Tools](../tools/) for the full catalogue.
-
-```
-loop up to MAX_TOOL_REQUEST_TIMES (default 30):
-    response = llm.complete(messages, tools)
-    if response.toolCalls is empty:
-        nudge model with "You did not successfully call any tools.
-                          Please try again or use task_done if finished."
-        continue
-    for each call: execute → collect result
-    if any call was task_done: break
-    addNextMessage(...)              # may trigger compression
-```
-
-The loop has five exit conditions:
-
-1. `task_done` was called.
-2. `MAX_TOOL_REQUEST_TIMES` ran out.
-3. 3 consecutive rounds produced no valid tool results
-   (`maxConsecutiveEmptyRounds = 3`).
-4. The context was cancelled.
-5. `addNextMessage` returned false — compression couldn't bring the
-   message buffer back under the warning threshold.
-
-In all cases collected `code_comment` calls become review comments.
+The runner prompt asks for repository reads only, a strict JSON result, and complete `reviewed_files` coverage. OCR does not expose the old per-file worker loop or runtime permission override in local runner mode.
 
 ## Memory compression
 
@@ -287,11 +237,7 @@ per-file:
 
 The placeholder substitution lives in
 [`agent.go`](https://github.com/alibaba/open-code-review/blob/main/internal/agent/agent.go).
-The template itself isn't a CLI override — to change prompts you edit
-[`task_template.json`](https://github.com/alibaba/open-code-review/blob/main/internal/config/template/task_template.json)
-and rebuild. The `--tools` flag is a *tool-registry* override (it
-swaps the JSON consumed by `internal/config/toolsconfig`), not a
-template override — see [Tools](../tools/#customizing-tools).
+The runner prompt and JSON schema are embedded in OCR. They are not CLI overrides; to change prompts or runner permissions, edit source and rebuild OCR.
 
 > **Placeholder syntax caveat.** All the placeholders above use
 > double-brace `{{…}}` syntax *except* `RE_LOCATION_TASK`, which

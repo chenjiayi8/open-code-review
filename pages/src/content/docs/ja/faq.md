@@ -36,38 +36,9 @@ ocr scan --runner claude --path internal/agent
 `git ls-files`）を実行します。Git ワークツリー内にいない場合は、早期に終了します。リポジトリに
 `cd` するか、`--repo /path/to/repo` を渡してください。
 
-### "No tool calls parsed"（ローカルモデル / Ollama）
+### local runner がツール、quota、タイムアウトのエラーを返す
 
-```
-[ocr] No tool calls parsed for src/foo.go, retrying...
-[ocr] Max tool requests reached for src/foo.go.
-```
-
-すべてのレビューが `No tool calls parsed` のリトライをループし、"Max tool requests
-reached" とコメント 0 件で終わる場合、問題は設定ではなくモデルにあります。OCR はレビュー全体を
-ツール呼び出しで駆動するため、**モデルはネイティブなツール呼び出し（function calling）を
-サポートしている必要があります**。ツール呼び出しをテキスト出力（あるいは `<think>` ブロック内）で
-*語るだけ*のモデルは、prompt をどう調整しても OCR では決して動作しません——`deepseek-r1` は
-よくある例です。`qwen3` のようなネイティブなツールサポートを持つモデルは問題なく動作します。
-Ollama の場合は、tools サポートのタグが付いたモデルから選んでください:
-<https://ollama.com/search?c=tools>。
-
-OCR を介さずに、ローカルモデルを直接検証するには:
-
-```bash
-curl http://127.0.0.1:11434/v1/chat/completions -H "Content-Type: application/json" -d '{
-  "model": "qwen3:32b",
-  "messages": [{"role": "user", "content": "The code below has a bug, use the report_bug tool to report it.\n\nfunc add(a, b int) int {\n  return a - b\n}"}],
-  "tools": [{"type": "function", "function": {"name": "report_bug", "description": "Report a bug in the code",
-    "parameters": {"type": "object", "properties": {"line": {"type": "integer"}, "description": {"type": "string"}}, "required": ["description"]}}}]
-}'
-```
-
-合格: 応答に `report_bug` を指す構造化された `tool_calls` 配列が含まれる。不合格: 「呼び出し」が
-`content` 内のテキストとして現れる。
-
-モデルがツールを*サポートしている*のに、ローカルハードウェアで応答が遅い場合は、代わりに
-LLM タイムアウトを引き上げてください——[タイムアウト](../configuration/#timeouts)を参照。
+OCR はモデル実行をログイン済みの Codex または Claude CLI に委譲します。runner がツール、quota、retry、timeout の問題を報告する場合は runner のログイン状態を確認し、`--path`、`--exclude`、または小さな diff で範囲を絞ってください。処理に本当に時間が必要な場合は `--timeout <minutes>` を上げます。
 
 ## フィルタリングとルール
 
@@ -160,44 +131,20 @@ JSON モードでは `warnings` にも表示されます。
 `PLAN_MODE_LINE_THRESHOLD`（デフォルト **50**）を超えると、plan フェーズが実行されます。これは
 意図的なものです——大きな diff は plan の恩恵を受けます。単一のレビューでスキップするには、
 より小さな diff で実行するか、埋め込みテンプレートを一時的に編集してください（上級者向け。
-`--tools` の上書きが必要）。
+内蔵 runner prompt の変更と再ビルドが必要です）。
 
-### "Max tool requests reached"
 
-```
-[ocr] Max tool requests reached for src/foo.go.
-```
+### local runner がタイムアウトする、または一部ファイルを報告しない
 
-モデルが 30（`MAX_TOOL_REQUEST_TIMES`）回のツール呼び出しを費やしたのに `task_done` を
-呼びませんでした。その時点までに発せられたコメントは、依然として収集されレンダリングされます。
-ほとんどのファイルでこうなる場合、原因は通常次のとおりです。
+OCR は runner の `reviewed_files` を coverage の証拠として扱います。含まれないファイルは session 出力で未完了として記録されます。timeout の場合は範囲を絞るか、`--timeout <minutes>` を上げてください。
 
-- モデルが「完了したら `task_done` を呼べ」という指示に従うのが苦手。より強力なモデル
-  （Claude Opus など）に切り替えてください。
-- あるツールがエラーを出し続け、モデルがリトライし続けている。セッション JSONL を確認してください——
-  同じツール結果が繰り返されていれば、それが原因です。
-- ファイルが本当に大きい、あるいはコンテキストが重く、30 回では足りない。`--max-tools <n>` で
-  上げるか下げるか調整してください（例: `--max-tools 40` でより多く、`--max-tools 15` でより少なく）。
-  1〜9 は 10 に引き上げられます。`0`（デフォルト）はテンプレートのデフォルト 30 を使います。
-- モデルがネイティブなツール呼び出しを全くサポートしていない（ローカルモデルでよくある）——
-  ["No tool calls parsed"（ローカルモデル / Ollama）](#no-tool-calls-parsed-ollama)を
-  参照してください。
+### 一部のファイルが未完了でも結果は残る
 
-### 一部のサブエージェントが失敗しても、実行は 0 で終了する
-
-意図的なものです。OCR はファイルごとの失敗を隔離し、1 つの問題のあるファイルが 20 ファイルの
-レビュー全体を巻き込まないようにします。成功したものが*1 つでもあれば*、集計終了コードは `0` です。
-完全に失敗した場合（成功したサブエージェントがゼロ）のみ非ゼロで終了します。どのファイルが
-失敗したかは、JSON モードの `warnings` 配列またはテキストモードの stderr を確認してください。
+OCR は検証済みコメントを保持し、未 coverage または失敗したファイルを session/JSON 出力に記録します。再実行が必要なパスは `warnings` と session 詳細で確認できます。
 
 ### CI での実行がローカルよりずっと遅い
 
-よくある原因は 2 つです。
-
-- **モデルのレート制限**——制限がかかると、LLM client はバックオフしてリトライします。最初から
-  制限に触れないよう、`--concurrency` を下げてください（`4` など）。
-- **コールドキャッシュ**——プロバイダーが prompt キャッシュをサポートしている場合、デプロイ後の
-  初回実行は恩恵を受けられません。同じウィンドウ内の後続実行はより高速になります。
+CI 環境では選択した runner のインストールと認証が毎回必要になり、ローカル cache もありません。OCR 実行前に Codex または Claude にログインしていることを確認してください。runner が quota/timeout を報告する場合は範囲を絞るか、`--timeout <minutes>` を使います。
 
 ## 出力と統合
 
@@ -242,25 +189,11 @@ LLM 呼び出しには独自の span がありません——metric として記
 注目してください。console exporter はこれらの集計をインラインで出力します。ダッシュボードが必要な場合は、
 OTLP exporter に切り替えて metrics 基盤に送ってください——[テレメトリ](../telemetry/)を参照。
 
-### なぜ私のレビューはこんなに高価なのか？
+### runner の作業量を減らすには？
 
-よくある要因:
-
-- ファイルが 50 行以上のとき plan フェーズが起動します。これはファイルごとに LLM 呼び出しを
-  1 回追加します。閾値を下げるとコストを削減でき、上げると小さな PR の速度を向上できます。
-- `MAX_TOOL_REQUEST_TIMES = 30` はかなり緩やかです。ラウンドを使い切るモデルは、3 ラウンドで
-  終わるモデルより長い（トークンの多い）対話を生みます。より強力なモデルはより速く終える傾向が
-  あります。逆に、"max tool requests reached" に対処するため `--max-tools` を上げると、ファイルごとの
-  コストはおおむね線形に増加すると考えてください。
-- メモリ圧縮それ自体が 1 回の LLM 呼び出しです。長いサブタスクは、レビューのラウンドに加えて、
-  圧縮のラウンド分も支払うことになります。
-
-### LLM 呼び出しを減らすには？
-
-- `include` リストを追加して、OCR が気にしないファイルをレビューしないようにします。
-- アカウントに burst-mode の課金がある場合は、`--concurrency` を下げます。
-- `--background` を渡します——十分な事前コンテキストがあれば、モデルが `file_read` /
-  `code_search` の往復なしに完了できることがあります。
+- `include`/`exclude` ルールで不要なファイルを外します。
+- 大きな変更は小さな commit、範囲、または `--path` に分けます。
+- `--background` で必要な業務コンテキストを先に渡します。
 
 ## プライバシーとセキュリティ
 

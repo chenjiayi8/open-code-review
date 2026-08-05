@@ -2,6 +2,7 @@ package runner
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -37,9 +38,26 @@ func TestSafeChildEnvRemovesCredentialAndOCRLLMVariables(t *testing.T) {
 
 func TestClaudeCommandRestrictsToolsAndUsesSchema(t *testing.T) {
 	args := claudeArgs("/tmp/schema.json", "")
-	for _, want := range []string{"-p", "--output-format", "json", "--json-schema", "/tmp/schema.json", "--permission-mode", "dontAsk", "--allowedTools", `Read,Glob,Grep,Bash(git\ *)`} {
+	for _, want := range []string{"-p", "--output-format", "json", "--json-schema", "/tmp/schema.json", "--permission-mode", "dontAsk", "--allowedTools", "Read,Glob,Grep"} {
 		if !slices.Contains(args, want) {
 			t.Fatalf("claude args missing %q: %#v", want, args)
+		}
+	}
+}
+
+func TestClaudeCommandDoesNotAllowMutatingGitSubcommands(t *testing.T) {
+	args := claudeArgs("/tmp/schema.json", "")
+	for i, arg := range args {
+		if arg == "--allowedTools" && i+1 < len(args) {
+			tools := args[i+1]
+			if strings.Contains(tools, "Bash(git") {
+				t.Fatalf("claude allowedTools contains git bash access: %q", tools)
+			}
+			for _, mutating := range []string{"commit", "checkout", "switch", "reset", "clean", "apply", "am", "merge", "rebase", "push", "pull", "fetch"} {
+				if strings.Contains(tools, "git "+mutating) {
+					t.Fatalf("claude allowedTools contains mutating git subcommand %q: %q", mutating, tools)
+				}
+			}
 		}
 	}
 }

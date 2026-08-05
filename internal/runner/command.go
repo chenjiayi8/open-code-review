@@ -39,7 +39,7 @@ func claudeArgs(schemaPath, model string) []string {
 		"--output-format", "json",
 		"--json-schema", schemaPath,
 		"--permission-mode", "dontAsk",
-		"--allowedTools", `Read,Glob,Grep,Bash(git\ *)`,
+		"--allowedTools", "Read,Glob,Grep",
 	)
 }
 

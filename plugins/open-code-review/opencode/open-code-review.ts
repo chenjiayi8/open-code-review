@@ -11,9 +11,7 @@ interface ReviewInput {
   background?: string
   exclude?: string
   runnerModel?: string
-  concurrency?: number
   timeoutMinutes?: number
-  maxTools?: number
   maxGitProcesses?: number
   preview?: boolean
 }
@@ -100,9 +98,7 @@ function buildReviewArgs(input: ReviewInput): string[] {
   pushValue(args, "--background", input.background)
   pushValue(args, "--exclude", input.exclude)
   pushValue(args, "--runner-model", input.runnerModel)
-  pushValue(args, "--concurrency", input.concurrency)
   pushValue(args, "--timeout", input.timeoutMinutes)
-  pushValue(args, "--max-tools", input.maxTools)
   pushValue(args, "--max-git-procs", input.maxGitProcesses)
 
   if (input.preview) {
@@ -264,9 +260,6 @@ function formatReviewResult(result: RunResult, preview: boolean): string {
 const optionalString = (description: string) =>
   tool.schema.string().optional().describe(description)
 
-const optionalPositiveInt = (description: string) =>
-  tool.schema.number().int().positive().optional().describe(description)
-
 const reviewArgs = {
   commit: optionalString("Review one commit against its parent."),
   from: optionalString("Base ref for a branch/range comparison. Must be paired with 'to'."),
@@ -276,10 +269,8 @@ const reviewArgs = {
   exclude: optionalString("Comma-separated gitignore-style exclusion patterns."),
   runner: tool.schema.string().describe("Local subscription runner to use: codex or claude."),
   runnerModel: optionalString("Optional model hint passed to the selected local runner for this run."),
-  concurrency: optionalPositiveInt("Maximum concurrent file reviews."),
-  timeoutMinutes: optionalPositiveInt("Per-file OCR timeout in minutes."),
-  maxTools: optionalPositiveInt("Maximum tool-call rounds per file; OCR enforces a minimum of 10."),
-  maxGitProcesses: optionalPositiveInt("Maximum concurrent Git subprocesses."),
+  timeoutMinutes: tool.schema.number().int().positive().optional().describe("Overall OCR runner process timeout in minutes."),
+  maxGitProcesses: tool.schema.number().int().positive().optional().describe("Maximum concurrent Git subprocesses used while preparing review scope."),
   preview: tool.schema.boolean().optional().describe(
     "List the files that would be reviewed without calling an LLM.",
   ),

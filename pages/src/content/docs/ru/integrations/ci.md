@@ -151,7 +151,7 @@ curl -o .github/workflows/ocr-review.yml \
     BASE_REF: ${{ github.base_ref }}
     HEAD_REF: ${{ github.head_ref }}
   run: |
-    ocr review --runner codex --concurrency 5 \
+    ocr review --runner codex \
       --from "origin/$BASE_REF" \
       --to "origin/$HEAD_REF"
 ```
@@ -318,13 +318,13 @@ script:
 #### Пользовательские правила и параллелизм
 
 Используйте те же флаги, что и в рецепте GitHub Actions: `--rule` для файла
-правил проекта и `--concurrency` для ограничения числа параллельных субагентов
+файл правил проекта и `--timeout` для ограничения процесса local runner:
 (по умолчанию 8):
 
 ```yaml
 script:
   - |
-    ocr review --runner codex --rule ./my-rules.json --concurrency 5 \
+    ocr review --runner codex --rule ./my-rules.json \
       --from "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" \
       --to "${CI_COMMIT_SHA}"
 ```

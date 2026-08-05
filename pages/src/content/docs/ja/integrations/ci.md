@@ -116,7 +116,7 @@ PR で制御可能な値は `${{ }}` を `run:` に直接展開するのでは�
     BASE_REF: ${{ github.base_ref }}
     HEAD_REF: ${{ github.head_ref }}
   run: |
-    ocr review --runner codex --concurrency 5 \
+    ocr review --runner codex \
       --from "origin/$BASE_REF" \
       --to "origin/$HEAD_REF"
 ```
@@ -266,12 +266,12 @@ script:
 #### カスタムルールと並行数
 
 GitHub Actions のレシピと同じ引数です——`--rule` でプロジェクト固有のルールファイルを渡し、
-`--concurrency` で並行サブ agent を制限します（デフォルトは 8）。
+`--timeout` bounds the overall local runner process:
 
 ```yaml
 script:
   - |
-    ocr review --runner codex --rule ./my-rules.json --concurrency 5 \
+    ocr review --runner codex --rule ./my-rules.json \
       --from "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" \
       --to "${CI_COMMIT_SHA}"
 ```
