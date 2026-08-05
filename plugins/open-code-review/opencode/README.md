@@ -10,11 +10,11 @@ It registers:
 
 ## Prerequisites
 
-Install OCR and authenticate a local subscription runner first. OCR does not configure or use runner credentials; Codex or Claude owns subscription authentication.
+Install OCR and authenticate a local runner first using that CLI's supported native login or API-token mechanism. OCR does not configure or use runner credentials; Codex or Claude owns authentication.
 
 ```bash
 npm install -g @alibaba-group/open-code-review
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```
@@ -62,7 +62,7 @@ Use the registered commands:
 - Reviews have a 15-minute overall timeout and a 10 MiB output limit.
 - Cancelling the OpenCode tool terminates the OCR process.
 - Runner authentication remains in the installed Codex or Claude CLI.
-- CI authentication is separate from local subscription login.
+- CI authentication is separate from local runner authentication.
 - Workspace mode includes staged, unstaged, and untracked files.
 
 ## Development

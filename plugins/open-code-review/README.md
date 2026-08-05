@@ -8,15 +8,15 @@ Install OCR first:
 npm install -g @alibaba-group/open-code-review
 ```
 
-Authenticate the local subscription runner you want OCR to use. The installed runner CLI owns authentication; OCR does not configure or use runner credentials.
+Authenticate the local runner you want OCR to use with that CLI's supported native login or API-token mechanism. The installed runner CLI owns authentication; OCR does not configure or use runner credentials.
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```
 
-`--runner` is required for review/scan execution, while `--runner-model <name>` is optional per run. Read-only/preflight commands such as `--preview` can run without invoking a runner. CI authentication is separate from local subscription login; authenticate Codex or Claude inside CI instead of storing OCR credentials.
+`--runner` is required for review/scan execution, while `--runner-model <name>` is optional per run. Read-only/preflight commands such as `--preview` can run without invoking a runner. CI authentication is separate from local runner authentication; authenticate Codex or Claude inside CI instead of storing OCR credentials.
 
 ## Claude Code
 

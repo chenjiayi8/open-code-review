@@ -4,14 +4,14 @@ sidebar:
   order: 6
 ---
 
-The complete reference for local subscription runner review commands.
+The complete reference for local runner review commands.
 
 ## Authentication
 
-OCR does not manage runner credentials or provider connection settings. Authenticate the installed runner CLI first:
+OCR does not manage runner credentials or provider connection settings. Authenticate the installed runner CLI first with its supported native mechanism:
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```
@@ -31,7 +31,7 @@ ocr scan --runner claude --path internal/agent
 
 ## Required runner flags
 
-`ocr review` and `ocr scan` require `--runner codex` or `--runner claude` for non-preview execution. `--runner-model <name>` is optional and is passed to the selected runner for that invocation only. OCR preflights the selected runner and fails before review work if the runner CLI is missing or not authenticated.
+`ocr review` and `ocr scan` require `--runner codex` or `--runner claude` for non-preview execution. `--runner-model <name>` is optional and is passed to the selected runner for that invocation only. OCR preflights the selected runner and fails before review work if the runner CLI is missing. Native command authentication failures are reported by the runner.
 
 Read-only/preflight commands, including `ocr review --preview` and `ocr scan --preview`, inspect files and rules without invoking a runner.
 
@@ -58,6 +58,6 @@ ocr scan --preview --path internal/agent
 
 `ocr scan` reviews full files. It accepts the shared output, runner, timeout, rule, exclusion, and resume flags plus scan-specific toggles such as `--path`, `--no-plan`, `--no-dedup`, and `--no-summary`.
 
-## Local subscription vs CI
+## Local runner authentication vs CI
 
-Local login state belongs to the Codex or Claude CLI on that machine. CI jobs must authenticate the selected runner inside CI; do not add OCR provider credential setup.
+Local login or API-token state belongs to the Codex or Claude CLI on that machine. CI jobs must authenticate the selected runner inside CI; do not add OCR provider credential setup.

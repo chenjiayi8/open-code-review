@@ -4,7 +4,7 @@ sidebar:
   order: 9
 ---
 
-Model work для review и scan делегируется выбранному local subscription runner: Codex CLI или Claude Code CLI. OCR отвечает за deterministic selection, validation, coverage и session output.
+Model work для review и scan делегируется выбранному local runner: Codex CLI или Claude Code CLI. OCR отвечает за deterministic selection, validation, coverage и session output.
 
 ## Runner selection
 
@@ -21,7 +21,7 @@ OCR запускает один authenticated local runner process для review
 
 - Codex выполняется через installed Codex CLI.
 - Claude выполняется через installed Claude Code CLI с read-only `Read`, `Glob`, `Grep` permission expectations.
-- Authentication, subscription quota, retry и model-side tool behavior принадлежат selected runner CLI.
+- Authentication, API-token handling, quota, retry и model-side tool behavior принадлежат selected runner CLI.
 
 `--timeout <minutes>` ограничивает весь runner process. Если run слишком большой, сузьте selection через review range, `--exclude` или scan `--path`.
 

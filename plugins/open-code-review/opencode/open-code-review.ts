@@ -267,7 +267,7 @@ const reviewArgs = {
   resume: optionalString("Resume a previous OCR review session by ID."),
   background: optionalString("Business or requirement context that the implementation should satisfy."),
   exclude: optionalString("Comma-separated gitignore-style exclusion patterns."),
-  runner: tool.schema.string().describe("Local subscription runner to use: codex or claude."),
+  runner: tool.schema.string().describe("Local runner to use: codex or claude."),
   runnerModel: optionalString("Optional model hint passed to the selected local runner for this run."),
   timeoutMinutes: tool.schema.number().int().positive().optional().describe("Overall OCR runner process timeout in minutes."),
   maxGitProcesses: tool.schema.number().int().positive().optional().describe("Maximum concurrent Git subprocesses used while preparing review scope."),
@@ -305,7 +305,7 @@ export const OpenCodeReviewPlugin: Plugin = async ({ client, worktree }) => {
     tool: {
       ocr_review: tool({
         description:
-          "Run OpenCodeReview on workspace changes, one commit, or a ref range using a required local subscription runner. " +
+          "Run OpenCodeReview on workspace changes, one commit, or a ref range using a required local runner. " +
           "Returns structured line-level findings as JSON. Use preview=true to inspect scope without LLM usage.",
         args: reviewArgs,
         async execute(args, context) {
@@ -322,7 +322,7 @@ export const OpenCodeReviewPlugin: Plugin = async ({ client, worktree }) => {
         description:
           "Check the installed OpenCodeReview version and run read-only preflight for the selected local runner.",
         args: {
-          runner: tool.schema.string().describe("Local subscription runner to preflight: codex or claude."),
+          runner: tool.schema.string().describe("Local runner to preflight: codex or claude."),
           runnerModel: optionalString("Optional model hint passed to the selected local runner for preflight."),
         },
         async execute(args, context) {

@@ -6,19 +6,19 @@ sidebar:
 
 OCR handles deterministic engineering (file selection, rule resolution)
 while the host agent performs the actual code review using its own model
-capabilities. No OCR-side runner authentication is required.
+capabilities. No OCR-side runner authentication is needed.
 
 ## When to use delegation mode
 
-Delegation mode is designed for subscription-based AI coding agents —
-such as Claude Code, Codex, Cursor, Open Code, Qoder, etc. — where you
-already have a model subscription bundled with the host agent. Instead
+Delegation mode is designed for AI coding agents —
+such as Claude Code, Codex, Cursor, Open Code, Qoder, etc. — where the
+host agent already has model access. Instead
 of authenticating a separate OCR runner, you reuse the host agent's
-existing subscription quota to perform the review.
+existing native authentication and quota to perform the review.
 
 Use delegation mode when:
 
-1. Your AI coding agent runs on a subscription plan and you want to
+1. Your AI coding agent already has model access and you want to
    reuse that quota for code review — no extra OCR credential setup
    configuration needed.
 2. You want OCR only for its engineering scaffolding — file filtering,

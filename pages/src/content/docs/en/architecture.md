@@ -4,7 +4,7 @@ sidebar:
   order: 8
 ---
 
-A walk-through of how `ocr review` and `ocr scan` run with the local subscription runner model.
+A walk-through of how `ocr review` and `ocr scan` run with the local runner model.
 
 ## High-level pipeline
 
@@ -21,7 +21,7 @@ flowchart TD
 
 OCR is the deterministic wrapper around an installed local CLI. It chooses the file set, renders the runner prompt, starts exactly one authenticated Codex or Claude runner process for that review or scan selection, validates the structured result, and writes reproducible output/session records.
 
-Preview commands keep the same selection logic but stop before runner invocation. `ocr review --preview` is read-only and does not require `--runner` or runner login.
+Preview commands keep the same selection logic but stop before runner invocation. `ocr review --preview` is read-only and does not require `--runner` or runner authentication.
 
 ## Selection and preview
 
@@ -46,7 +46,7 @@ ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```
 
-Supported values are `codex` and `claude`. OCR preflights the selected CLI before the run and fails early if it is missing or not authenticated. Use `--runner-model <name>` only when you want to pass a model hint to the selected runner for this invocation.
+Supported values are `codex` and `claude`. OCR preflights the selected CLI before the run and fails early if it is missing; authentication failures are reported by the native runner command. Use `--runner-model <name>` only when you want to pass a model hint to the selected runner for this invocation.
 
 OCR starts one local runner process per command invocation. Scope is controlled with selection flags, and duration is bounded by the process-level `--timeout <minutes>` flag.
 

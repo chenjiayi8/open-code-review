@@ -11,17 +11,17 @@ the steps you ran and the full output.
 
 ## Configuration & startup
 
-### `runner subscription authentication required`
+### Runner authentication failed
 
-OCR review and scan commands use an installed local subscription runner. For non-preview runs, pass `--runner codex` or `--runner claude` and authenticate that CLI first:
+OCR review and scan commands use an installed local runner. For non-preview runs, pass `--runner codex` or `--runner claude` and authenticate that CLI first using its supported native mechanism:
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```
 
-If OCR reports that runner subscription authentication is required, the selected runner is missing, logged out, or unavailable in the current environment. Install/log in to the runner and retry. Do not invent OCR-owned runner credential variables; authenticate the selected runner with its official login flow.
+If OCR reports a runner authentication failure, the selected runner is missing, logged out, or unavailable in the current environment. Install and authenticate the runner with its official login or API-token mechanism, then retry. Do not invent OCR-owned runner credential variables.
 
 ### Preview works but review fails
 
@@ -29,7 +29,7 @@ If OCR reports that runner subscription authentication is required, the selected
 
 ### Authentication failures from the runner
 
-A login, subscription, quota, or permission error comes from the selected Codex or Claude CLI. Re-authenticate that tool in the same shell or CI job and retry OCR. In CI, authenticate the runner with your CI platform's supported secret/OIDC/device-flow mechanism before invoking `ocr review --runner ...`.
+A login, API-token, quota, or permission error comes from the selected Codex or Claude CLI. Re-authenticate that tool in the same shell or CI job and retry OCR. In CI, authenticate the runner with your CI platform's supported secret/OIDC/device-flow mechanism before invoking `ocr review --runner ...`.
 
 ### `not a git repository`
 
@@ -164,7 +164,7 @@ the embedded template (advanced; modify the embedded runner prompt in source and
 
 ### The local runner times out or reports quota/tool limits
 
-OCR invokes one selected local runner process for each review or scan. If that process times out or reports quota/tool-use limits, narrow the selected scope with `--path`, `--exclude`, or a smaller diff, or raise the process bound with `--timeout <minutes>`. Runner-specific retry and quota behavior belongs to the installed Codex or Claude CLI.
+OCR invokes one selected local runner process for each review or scan. If that process times out or reports quota/tool-use limits, narrow the selected scope with `--path`, `--exclude`, or a smaller diff, or raise the process bound with `--timeout <minutes>`. Runner-specific authentication, retry, and quota behavior belongs to the installed Codex or Claude CLI.
 
 ### Some selected files are not reported as reviewed
 
@@ -213,7 +213,7 @@ Enable telemetry:
 ```bash
 ocr config set telemetry.enabled true
 ocr config set telemetry.exporter console
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ```
 

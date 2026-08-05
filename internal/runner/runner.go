@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -16,7 +15,7 @@ import (
 
 var (
 	ErrExecutableNotFound = errors.New("runner executable not found")
-	ErrUnauthenticated    = errors.New("runner subscription authentication required")
+	ErrUnauthenticated    = errors.New("runner native command authentication failed")
 	ErrRunnerTimeout      = errors.New("runner command timed out")
 
 	bearerTokenPattern = regexp.MustCompile(`(?i)(bearer\s+)[^\s]+`)
@@ -201,41 +200,8 @@ func redactRunnerFailure(message string, env []string) string {
 }
 
 func sensitiveNativeEnv(name string) bool {
-	switch name {
-	case "OPENAI_API_KEY", "CODEX_API_KEY", "CODEX_ACCESS_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL":
-		return true
-	default:
-		return false
-	}
-}
-
-func parseCodexStatus(data []byte) (Identity, error) {
-	text := strings.TrimSpace(string(data))
-	if text == "" {
-		return Identity{}, fmt.Errorf("%w: codex login status was empty", ErrUnauthenticated)
-	}
-	if strings.EqualFold(text, "Logged in using ChatGPT") {
-		return Identity{Kind: Codex, AuthMethod: "chatgpt"}, nil
-	}
-	return Identity{}, fmt.Errorf("%w: codex must be logged in with ChatGPT", ErrUnauthenticated)
-}
-
-func parseClaudeStatus(data []byte) (Identity, error) {
-	dec := json.NewDecoder(bytes.NewReader(data))
-	var status struct {
-		LoggedIn   bool   `json:"loggedIn"`
-		AuthMethod string `json:"authMethod"`
-	}
-	if err := dec.Decode(&status); err != nil {
-		return Identity{}, fmt.Errorf("claude auth status: decode: %w", err)
-	}
-	if dec.Decode(&struct{}{}) != io.EOF {
-		return Identity{}, errors.New("claude auth status: multiple JSON values")
-	}
-	if !status.LoggedIn || status.AuthMethod != "claude.ai" {
-		return Identity{}, fmt.Errorf("%w: claude must be logged in with claude.ai", ErrUnauthenticated)
-	}
-	return Identity{Kind: Claude, AuthMethod: status.AuthMethod}, nil
+	upper := strings.ToUpper(name)
+	return strings.Contains(upper, "KEY") || strings.Contains(upper, "TOKEN") || strings.Contains(upper, "SECRET") || strings.Contains(upper, "AUTH") || strings.Contains(upper, "CREDENTIAL") || strings.Contains(upper, "BASE_URL")
 }
 
 func parseClaudeResult(data []byte) (Result, error) {

@@ -4,7 +4,7 @@ sidebar:
   order: 6
 ---
 
-Справочник команд ревью с локальными subscription runner.
+Справочник команд ревью с локальными runner.
 
 ## Аутентификация
 
@@ -58,6 +58,6 @@ ocr scan --preview --path internal/agent
 
 `ocr scan` проверяет полные файлы. Он принимает общие флаги вывода, runner, timeout, rules, exclude и resume, а также scan-переключатели `--path`, `--no-plan`, `--no-dedup`, `--no-summary`.
 
-## Локальная подписка и CI
+## Локальная аутентификация runner и CI
 
 Локальный вход принадлежит Codex или Claude CLI на данной машине. CI jobs должны аутентифицировать выбранный runner внутри CI; не добавляйте настройку учетных данных провайдера OCR.

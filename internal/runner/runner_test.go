@@ -16,8 +16,9 @@ func TestRunExecCommandRedactsSecretsFromFailureStderr(t *testing.T) {
 		"CODEX_ACCESS_TOKEN=access-secret-sentinel",
 		"ANTHROPIC_API_KEY=anthropic-secret-sentinel",
 		"ANTHROPIC_BASE_URL=https://anthropic-secret.example/v1",
+		"CLAUDE_CODE_OAUTH_TOKEN=claude-oauth-secret-sentinel",
 	}
-	_, err := runExecCommand(context.Background(), "/bin/sh", []string{"-c", `printf '%s\n' 'non-secret diagnostic before auth leak' 'openai-secret-sentinel' 'CODEX_API_KEY=codex-secret-sentinel' 'Authorization: Bearer bearer-secret-sentinel' 'EXTRA_API_KEY=extra-secret-sentinel' 'https://anthropic-secret.example/v1' >&2; exit 7`}, nil, env, "")
+	_, err := runExecCommand(context.Background(), "/bin/sh", []string{"-c", `if [ "$CLAUDE_CODE_OAUTH_TOKEN" != "claude-oauth-secret-sentinel" ]; then echo 'missing native token env' >&2; exit 8; fi; printf '%s\n' 'non-secret diagnostic before auth leak' 'openai-secret-sentinel' 'CODEX_API_KEY=codex-secret-sentinel' 'Authorization: Bearer bearer-secret-sentinel' 'EXTRA_API_KEY=extra-secret-sentinel' 'https://anthropic-secret.example/v1' 'claude-oauth-secret-sentinel' >&2; exit 7`}, nil, env, "")
 	if err == nil {
 		t.Fatal("expected command failure")
 	}
@@ -28,6 +29,7 @@ func TestRunExecCommandRedactsSecretsFromFailureStderr(t *testing.T) {
 		"access-secret-sentinel",
 		"anthropic-secret-sentinel",
 		"https://anthropic-secret.example/v1",
+		"claude-oauth-secret-sentinel",
 		"bearer-secret-sentinel",
 		"extra-secret-sentinel",
 	} {
@@ -40,42 +42,6 @@ func TestRunExecCommandRedactsSecretsFromFailureStderr(t *testing.T) {
 	}
 	if !strings.Contains(message, "[redacted]") {
 		t.Fatalf("error did not include redaction marker: %s", message)
-	}
-}
-
-func TestCodexStatusRequiresSavedChatGPTLogin(t *testing.T) {
-	if _, err := parseCodexStatus([]byte("Logged in using ChatGPT\n")); err != nil {
-		t.Fatalf("expected saved ChatGPT login acceptance: %v", err)
-	}
-	cases := map[string][]byte{
-		"logged out with ChatGPT help": []byte("Not logged in. Run codex login to log in with ChatGPT.\n"),
-		"login instruction":            []byte("Log in with ChatGPT to continue.\n"),
-		"api key":                      []byte("Logged in using API key\n"),
-		"empty":                        []byte("  "),
-	}
-	for name, raw := range cases {
-		t.Run(name, func(t *testing.T) {
-			if _, err := parseCodexStatus(raw); err == nil {
-				t.Fatal("expected codex status rejection")
-			}
-		})
-	}
-}
-
-func TestClaudeStatusRequiresClaudeAISubscription(t *testing.T) {
-	_, err := parseClaudeStatus([]byte(`{"loggedIn":true,"authMethod":"api_key"}`))
-	if err == nil {
-		t.Fatal("expected subscription-auth rejection")
-	}
-}
-
-func TestClaudeStatusAcceptsObservedAPIProviderField(t *testing.T) {
-	identity, err := parseClaudeStatus([]byte(`{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"anthropic"}`))
-	if err != nil {
-		t.Fatalf("parseClaudeStatus: %v", err)
-	}
-	if identity.Kind != Claude || identity.AuthMethod != "claude.ai" {
-		t.Fatalf("identity = %+v, want claude.ai subscription", identity)
 	}
 }
 
@@ -203,21 +169,6 @@ func TestClaudeRunDoesNotIssueAuthStatusCommand(t *testing.T) {
 	}
 }
 
-func TestClaudeStatusRejectsMalformedAndUnauthenticatedJSON(t *testing.T) {
-	cases := map[string][]byte{
-		"malformed":       []byte(`{"loggedIn":true`),
-		"multiple values": []byte(`{"loggedIn":true,"authMethod":"claude.ai"} {}`),
-		"logged out":      []byte(`{"loggedIn":false,"authMethod":"claude.ai"}`),
-	}
-	for name, raw := range cases {
-		t.Run(name, func(t *testing.T) {
-			if _, err := parseClaudeStatus(raw); err == nil {
-				t.Fatal("expected claude status rejection")
-			}
-		})
-	}
-}
-
 func TestParseClaudeResultExtractsFinalResultEnvelope(t *testing.T) {
 	raw := []byte(`{"type":"result","subtype":"success","is_error":false,"result":"{\"reviewed_files\":[\"src/a.go\"],\"findings\":[]}"}`)
 	got, err := parseClaudeResult(raw)
@@ -267,11 +218,8 @@ func TestClaudeRunExecutesFromRequestRepository(t *testing.T) {
 	r := &Runner{
 		kind:     Claude,
 		lookPath: func(string) (string, error) { return "/usr/bin/claude", nil },
-		runCommand: func(_ context.Context, _ string, args []string, _ []byte, _ []string, cwd string) ([]byte, error) {
+		runCommand: func(_ context.Context, _ string, _ []string, _ []byte, _ []string, cwd string) ([]byte, error) {
 			commandCWDs = append(commandCWDs, cwd)
-			if len(args) >= 3 && args[0] == "auth" {
-				return []byte(`{"loggedIn":true,"authMethod":"claude.ai"}`), nil
-			}
 			return []byte(`{"type":"result","subtype":"success","is_error":false,"result":"{\"reviewed_files\":[\"src/a.go\"],\"findings\":[]}"}`), nil
 		},
 		environ: func() []string { return nil },

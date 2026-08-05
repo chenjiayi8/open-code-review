@@ -4,7 +4,7 @@ sidebar:
   order: 8
 ---
 
-Эта страница описывает, как `ocr review` и `ocr scan` работают в модели local subscription runner. OCR детерминированно выбирает файлы, формирует runner prompt, запускает один аутентифицированный local process Codex или Claude, проверяет structured result и записывает session.
+Эта страница описывает, как `ocr review` и `ocr scan` работают в модели local runner. OCR детерминированно выбирает файлы, формирует runner prompt, запускает один аутентифицированный local process Codex или Claude, проверяет structured result и записывает session.
 
 ## Pipeline
 
