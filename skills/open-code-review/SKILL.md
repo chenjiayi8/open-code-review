@@ -12,8 +12,8 @@ license: Apache-2.0
 compatibility: >
   Requires the `ocr` CLI installed (via `npm install -g
   @alibaba-group/open-code-review` or GitHub release binary). Requires an
-  authenticated local subscription runner (`codex` or `claude`) before first
-  non-preview run. OCR does not configure or use runner credentials.
+  authenticated local runner (`codex` or `claude`) before first
+  non-preview run, using that CLI's native login or API-token mechanism. OCR does not configure or use runner credentials.
 metadata:
   author: alibaba
   homepage: https://github.com/alibaba/open-code-review
@@ -32,8 +32,8 @@ Before starting a review, verify the environment:
 # 1. Check the CLI is installed
 which ocr || echo "NOT INSTALLED"
 
-# 2. Authenticate one local subscription runner
-codex login                 # or: claude auth login --claudeai
+# 2. Authenticate one local runner
+codex login                 # or use the runner's supported API-token auth
 
 # 3. Optional read-only/preflight check
 ocr review --preview
@@ -45,9 +45,9 @@ If `ocr` is not installed, install it first:
 npm install -g @alibaba-group/open-code-review
 ```
 
-OCR delegates LLM work to the selected local runner. The installed Codex or Claude CLI owns subscription authentication; OCR does not configure runner credentials or provider connection settings. Stop and ask the user to authenticate the chosen runner if preflight reports that it is missing or logged out.
+OCR delegates LLM work to the selected local runner. The installed Codex or Claude CLI owns authentication through its supported native mechanism; OCR does not configure runner credentials or provider connection settings. Stop and ask the user to authenticate the chosen runner if the native command reports an authentication failure.
 
-`--runner` is required for `ocr review` and `ocr scan` unless running a read-only/preflight command such as `--preview`. `--runner-model <name>` is optional and applies only to the current invocation. CI authentication is separate from local subscription login; CI jobs must authenticate the selected runner inside CI.
+`--runner` is required for `ocr review` and `ocr scan` unless running a read-only/preflight command such as `--preview`. `--runner-model <name>` is optional and applies only to the current invocation. CI authentication is separate from local runner authentication; CI jobs must authenticate the selected runner inside CI.
 
 ## Workflow
 
@@ -195,7 +195,7 @@ ocr rules check src/main/java/com/example/Foo.java
 
 ## Gotchas
 
-- **Runner authentication is required** — non-preview `ocr review` and `ocr scan` fail loudly if `--runner` is missing or the selected local CLI is not authenticated. Run `codex login` or `claude auth login --claudeai` before the first runner-backed review.
+- **Runner authentication is required** — non-preview `ocr review` and `ocr scan` fail loudly if `--runner` is missing or the selected local CLI is not authenticated. Use the runner's supported login or API-token mechanism before the first runner-backed review.
 - **Working directory matters** — `ocr review --runner codex` operates on the Git repo at the current directory. Use `--repo /path/to/repo` to run from elsewhere.
 - **Untracked files are reviewed in workspace mode** — `ocr review --runner codex` includes staged, unstaged, *and* untracked changes. Stage selectively if you want narrower scope.
 - **Large diffs may hit token limits** — files with very large diffs may be truncated. The default `MAX_TOKENS` is 58888 per request.

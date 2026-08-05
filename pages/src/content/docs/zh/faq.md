@@ -9,12 +9,12 @@ sidebar:
 
 ## 配置与启动
 
-### `runner subscription authentication required`
+### Runner authentication failed
 
-OCR 的 review 和 scan 命令使用已安装的本地订阅 runner。非 preview 运行必须传入 `--runner codex` 或 `--runner claude`，并先登录对应 CLI：
+OCR 的 review 和 scan 命令使用已安装的本地 runner。非 preview 运行必须传入 `--runner codex` 或 `--runner claude`，并先用该 CLI 支持的原生登录或 API token 机制完成认证：
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```
@@ -27,7 +27,7 @@ ocr scan --runner claude --path internal/agent
 
 ### Runner 返回认证失败
 
-登录、订阅、额度或权限错误来自所选 Codex 或 Claude CLI。请在同一个 shell 或 CI job 中重新认证该工具后重试 OCR。在 CI 中，先用 CI 平台支持的 secret/OIDC/device-flow 机制认证 runner，再运行 `ocr review --runner ...`。
+登录、API token、额度或权限错误来自所选 Codex 或 Claude CLI。请在同一个 shell 或 CI job 中重新认证该工具后重试 OCR。在 CI 中，先用 CI 平台支持的 secret/OIDC/device-flow 机制认证 runner，再运行 `ocr review --runner ...`。
 
 ### `not a git repository`
 
@@ -166,7 +166,7 @@ agent` 保证的干净 stdout 是*对解析器友好的*——要屏蔽一切，
 ```bash
 ocr config set telemetry.enabled true
 ocr config set telemetry.exporter console
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ```
 

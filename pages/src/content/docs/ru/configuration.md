@@ -4,14 +4,14 @@ sidebar:
   order: 5
 ---
 
-OCR больше не хранит учётные данные runner или настройки подключения провайдера. Выполнение ревью опирается на подписку: OCR запускает установленный локальный runner, а аутентификацией владеет сам runner.
+OCR не хранит учётные данные runner или настройки подключения провайдера. OCR запускает установленный локальный runner, а аутентификацией через native login или API token владеет сам runner.
 
-## Локальные subscription runner
+## Локальные runner
 
-Войдите в CLI, который должен использовать OCR:
+Аутентифицируйте CLI, который должен использовать OCR, через поддерживаемый native login или API token:
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```
@@ -24,4 +24,4 @@ Read-only/preflight команды вроде `ocr review --preview` прове�
 
 ## CI-аутентификация
 
-Локальный вход по подписке не переносится в CI автоматически. CI workflow должен установить OCR и аутентифицировать выбранный Codex или Claude runner внутри job. Не добавляйте в OCR команды настройки собственных учётных данных; используйте механизм аутентификации runner, поддерживаемый CI-платформой.
+Локальная аутентификация runner не переносится в CI автоматически. CI workflow должен установить OCR и аутентифицировать выбранный Codex или Claude runner внутри job. Не добавляйте в OCR команды настройки собственных учётных данных; используйте механизм аутентификации runner, поддерживаемый CI-платформой.

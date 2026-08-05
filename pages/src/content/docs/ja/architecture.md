@@ -4,7 +4,7 @@ sidebar:
   order: 8
 ---
 
-このページでは、local subscription runner モデルで `ocr review` と `ocr scan` がどう動くかを説明します。OCR は file selection、runner prompt 生成、認証済み Codex または Claude local process の 1 回起動、structured result の検証、session 書き込みを決定的に行います。
+このページでは、local runner モデルで `ocr review` と `ocr scan` がどう動くかを説明します。OCR は file selection、runner prompt 生成、認証済み Codex または Claude local process の 1 回起動、structured result の検証、session 書き込みを決定的に行います。
 
 ## Pipeline
 

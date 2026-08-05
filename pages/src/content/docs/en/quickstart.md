@@ -10,7 +10,7 @@ Get your first code review running in a few minutes.
 
 - **Git ≥ 2.41**
 - **Node.js ≥ 18**
-- **Codex CLI or Claude Code CLI with an active local subscription login**
+- **Codex CLI or Claude Code CLI authenticated with its supported native mechanism**
 
 ## Step 1 — Install the CLI
 
@@ -21,10 +21,10 @@ ocr version
 
 ## Step 2 — Authenticate a local runner
 
-OCR delegates LLM work to an installed local CLI. The local CLI owns subscription authentication; OCR does not store runner credentials.
+OCR delegates LLM work to an installed local CLI. The local CLI owns authentication through its supported native mechanism (existing login or API token); OCR does not store runner credentials.
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```
@@ -41,7 +41,7 @@ ocr review --runner codex --commit abc123
 ocr scan --runner claude --path internal/agent
 ```
 
-If OCR reports a preflight authentication failure, run the login command for the selected runner and retry. CI authentication is separate from local subscription login; authenticate Codex or Claude inside the CI job instead of configuring OCR provider secrets.
+If OCR reports a runner authentication failure, authenticate the selected CLI with its native login or API-token mechanism and retry. CI authentication is separate from local machine state; authenticate Codex or Claude inside the CI job instead of configuring OCR provider secrets.
 
 ## See Also
 

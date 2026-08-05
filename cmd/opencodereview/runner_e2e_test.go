@@ -21,7 +21,7 @@ const (
 
 func TestRunnerE2E(t *testing.T) {
 	if os.Getenv("OCR_RUNNER_E2E") != "1" {
-		t.Skip("set OCR_RUNNER_E2E=1 to consume local runner subscription quota")
+		t.Skip("set OCR_RUNNER_E2E=1 to invoke real installed runner commands with their native authentication")
 	}
 
 	ocr := buildRunnerE2EBinary(t)

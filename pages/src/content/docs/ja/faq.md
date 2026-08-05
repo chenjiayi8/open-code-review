@@ -10,12 +10,12 @@ sidebar:
 
 ## 設定と起動
 
-### `runner subscription authentication required`
+### Runner authentication failed
 
-OCR の review/scan はインストール済みのローカルサブスクリプション runner を使います。preview 以外では `--runner codex` または `--runner claude` を指定し、先に対応する CLI にログインしてください。
+OCR の review/scan はインストール済みのローカル runner を使います。preview 以外では `--runner codex` または `--runner claude` を指定し、先に対応する CLI を native login または API token で認証してください。
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```
@@ -28,7 +28,7 @@ ocr scan --runner claude --path internal/agent
 
 ### Runner の認証エラー
 
-ログイン、サブスクリプション、quota、権限エラーは選択した Codex または Claude CLI から返されます。同じ shell または CI job 内でそのツールを再認証してから OCR を再実行してください。CI では、`ocr review --runner ...` の前に CI プラットフォームがサポートする secret/OIDC/device-flow などで runner を認証します。
+ログイン、API token、quota、権限エラーは選択した Codex または Claude CLI から返されます。同じ shell または CI job 内でそのツールを再認証してから OCR を再実行してください。CI では、`ocr review --runner ...` の前に CI プラットフォームがサポートする secret/OIDC/device-flow などで runner を認証します。
 
 ### `not a git repository`
 
@@ -174,7 +174,7 @@ CI 環境では選択した runner のインストールと認証が毎回必要
 ```bash
 ocr config set telemetry.enabled true
 ocr config set telemetry.exporter console
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ```
 

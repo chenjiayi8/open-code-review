@@ -36,7 +36,7 @@
 
 ## What is Open Code Review?
 
-Open Code Review is an AI-powered code review CLI tool. It originated as Alibaba Group's internal official AI code review assistant — over the past two years, it has served tens of thousands of developers and identified millions of code defects. After thorough validation at massive scale, we incubated it into an open source project for the community. Simply authenticate a local subscription runner to get started.
+Open Code Review is an AI-powered code review CLI tool. It originated as Alibaba Group's internal official AI code review assistant — over the past two years, it has served tens of thousands of developers and identified millions of code defects. After thorough validation at massive scale, we incubated it into an open source project for the community. Install Codex or Claude, authenticate it with its native login or API-token mechanism, and select it with `--runner` to get started.
 
 It reads Git diffs, sends changed files through the selected authenticated local runner via an agent with tool-use capabilities, and generates structured review comments with line-level precision. The agent can read full file contents, search the codebase, inspect other changed files for context, and produce deep reviews — not just surface-level diff feedback. Beyond diff review, `ocr scan` reviews entire files for auditing unfamiliar codebases or directories that have no meaningful diff.
 
@@ -114,10 +114,10 @@ For other installation methods (install script, GitHub Release binary, from sour
 
 **1. Authenticate a local runner**
 
-OCR now runs through an installed local CLI subscription. Log in to the runner you want to use; OCR never stores runner credentials itself.
+OCR runs through an installed Codex or Claude CLI. Authenticate the CLI you want to use with its supported native mechanism (existing login or API token); OCR never stores runner credentials itself.
 
 ```bash
-codex login                 # or: claude auth login --claudeai
+codex login                 # or use the runner's supported API-token auth
 ocr review --runner codex
 ocr scan --runner claude --path internal/agent
 ```
@@ -176,7 +176,7 @@ Full documentation lives at **[open-codereview.ai/docs](https://open-codereview.
   - [OpenCode](plugins/open-code-review/opencode/README.md) — install native review tools and slash commands
   - [Skill-compatible agents](https://open-codereview.ai/docs/agent-skill) — install the portable agent skill
 - Review Execution Modes — after integration, choose how the review is executed
-  - [Local runner mode](https://open-codereview.ai/docs/configuration) — OCR runs the review through your authenticated Codex or Claude subscription runner
+  - [Local runner mode](https://open-codereview.ai/docs/configuration) — OCR runs the review through your authenticated Codex or Claude CLI
   - [Delegation Mode](https://open-codereview.ai/docs/delegate) — your coding agent runs the review directly; no OCR runner configuration required
 - [CI/CD Integration](https://open-codereview.ai/docs/cicd) — GitHub Actions, GitLab CI, GitFlic CI, and Gerrit integration
 - [Session Viewer](https://open-codereview.ai/docs/viewer) — browse and replay review sessions in browser

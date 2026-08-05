@@ -4,7 +4,7 @@ sidebar:
   order: 9
 ---
 
-Review and scan model work is delegated to the selected local subscription runner: Codex CLI or Claude Code CLI. OCR owns deterministic selection, validation, coverage, and session output.
+Review and scan model work is delegated to the selected local runner: Codex CLI or Claude Code CLI. OCR owns deterministic selection, validation, coverage, and session output.
 
 ## Runner selection
 
@@ -29,11 +29,11 @@ OCR starts one authenticated local runner process for the selected review or sca
 
 - Codex runs through the installed Codex CLI with OCR's read-only sandbox expectations.
 - Claude runs through the installed Claude Code CLI with OCR's read-only `Read`, `Glob`, and `Grep` permission expectations.
-- Authentication, subscription quota, provider retries, and model-side tool behavior belong to the selected runner CLI.
+- Authentication, API-token handling, quota, provider retries, and model-side tool behavior belong to the selected runner CLI.
 
 ## Timeouts and scope
 
-`--timeout <minutes>` bounds the overall local runner process. If a run is too large or the selected subscription hits quota limits, narrow the deterministic selection instead of looking for per-file concurrency controls:
+`--timeout <minutes>` bounds the overall local runner process. If a run is too large or the selected runner reports quota limits, narrow the deterministic selection instead of looking for per-file concurrency controls:
 
 ```bash
 ocr review --runner codex --from origin/main --to HEAD --exclude "docs/**"

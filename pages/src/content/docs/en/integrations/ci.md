@@ -339,7 +339,7 @@ script:
 #### Avoid re-reviewing on every push
 
 `only: [merge_requests]` triggers on **every** MR update, which can
-burn a lot of runner subscription quota on long-running MRs. GitLab has no native
+burn a lot of selected-runner quota on long-running MRs. GitLab has no native
 "only on creation" event, so the recommended pattern is to detect
 existing OCR notes before running the review and bail out if any are
 found. Replace the `ocr review --runner codex` invocation with a Python wrapper:
