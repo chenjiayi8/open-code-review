@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -17,6 +18,9 @@ var (
 	ErrExecutableNotFound = errors.New("runner executable not found")
 	ErrUnauthenticated    = errors.New("runner subscription authentication required")
 	ErrRunnerTimeout      = errors.New("runner command timed out")
+
+	bearerTokenPattern = regexp.MustCompile(`(?i)(bearer\s+)[^\s]+`)
+	apiKeyPattern      = regexp.MustCompile(`(?i)([A-Z0-9_]*API_KEY=)[^\s]+`)
 )
 
 type Identity struct {
@@ -176,9 +180,33 @@ func runExecCommand(ctx context.Context, executable string, args []string, stdin
 		if message == "" {
 			message = err.Error()
 		}
+		message = redactRunnerFailure(message, env)
 		return nil, fmt.Errorf("runner command %s failed: %s", executable, message)
 	}
 	return out, nil
+}
+
+func redactRunnerFailure(message string, env []string) string {
+	redacted := message
+	for _, entry := range env {
+		name, value, ok := strings.Cut(entry, "=")
+		if !ok || value == "" || !sensitiveNativeEnv(name) {
+			continue
+		}
+		redacted = strings.ReplaceAll(redacted, value, "[redacted]")
+	}
+	redacted = bearerTokenPattern.ReplaceAllString(redacted, "${1}[redacted]")
+	redacted = apiKeyPattern.ReplaceAllString(redacted, "${1}[redacted]")
+	return redacted
+}
+
+func sensitiveNativeEnv(name string) bool {
+	switch name {
+	case "OPENAI_API_KEY", "CODEX_API_KEY", "CODEX_ACCESS_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL":
+		return true
+	default:
+		return false
+	}
 }
 
 func parseCodexStatus(data []byte) (Identity, error) {
