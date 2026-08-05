@@ -13,7 +13,7 @@ func TestCodexCommandIsReadOnlyAndUsesSchema(t *testing.T) {
 	}
 }
 
-func TestSafeChildEnvRemovesCredentialAndOCRLLMVariables(t *testing.T) {
+func TestSafeChildEnvRemovesOnlyLegacyOCRLLMAndProviderVariables(t *testing.T) {
 	env := safeChildEnv([]string{
 		"PATH=/bin",
 		"OPENAI_API_KEY=openai",
@@ -26,12 +26,50 @@ func TestSafeChildEnvRemovesCredentialAndOCRLLMVariables(t *testing.T) {
 		"OCR_PROVIDER_TOKEN=provider-token",
 		"OCR_MAX_RETRIES=3",
 	})
-	if !slices.Contains(env, "PATH=/bin") || !slices.Contains(env, "OCR_MAX_RETRIES=3") {
-		t.Fatalf("safe env removed non-credential entries: %#v", env)
+	for _, want := range []string{
+		"PATH=/bin",
+		"OCR_MAX_RETRIES=3",
+		"OPENAI_API_KEY=openai",
+		"CODEX_API_KEY=codex",
+		"CODEX_ACCESS_TOKEN=token",
+		"ANTHROPIC_API_KEY=anthropic",
+		"ANTHROPIC_BASE_URL=https://example.invalid",
+	} {
+		if !slices.Contains(env, want) {
+			t.Fatalf("safe env removed %q from %#v", want, env)
+		}
 	}
-	for _, blocked := range []string{"OPENAI_API_KEY=openai", "CODEX_API_KEY=codex", "CODEX_ACCESS_TOKEN=token", "ANTHROPIC_API_KEY=anthropic", "ANTHROPIC_BASE_URL=https://example.invalid", "OCR_LLM_URL=https://example.invalid", "OCR_LLM_AUTH_TOKEN=ocr-token", "OCR_PROVIDER_TOKEN=provider-token"} {
+	for _, blocked := range []string{"OCR_LLM_URL=https://example.invalid", "OCR_LLM_AUTH_TOKEN=ocr-token", "OCR_PROVIDER_TOKEN=provider-token"} {
 		if slices.Contains(env, blocked) {
-			t.Fatalf("safe env kept credential entry %q in %#v", blocked, env)
+			t.Fatalf("safe env kept legacy OCR entry %q in %#v", blocked, env)
+		}
+	}
+}
+
+func TestSafeChildEnvPreservesNativeCLIAuthentication(t *testing.T) {
+	env := safeChildEnv([]string{
+		"OPENAI_API_KEY=token",
+		"CODEX_API_KEY=codex",
+		"CODEX_ACCESS_TOKEN=access",
+		"ANTHROPIC_API_KEY=anthropic",
+		"ANTHROPIC_BASE_URL=https://anthropic.example",
+		"OCR_LLM_TOKEN=legacy",
+		"OCR_PROVIDER_TOKEN=legacy-provider",
+	})
+	for _, want := range []string{
+		"OPENAI_API_KEY=token",
+		"CODEX_API_KEY=codex",
+		"CODEX_ACCESS_TOKEN=access",
+		"ANTHROPIC_API_KEY=anthropic",
+		"ANTHROPIC_BASE_URL=https://anthropic.example",
+	} {
+		if !slices.Contains(env, want) {
+			t.Fatalf("safe env removed native auth entry %q from %#v", want, env)
+		}
+	}
+	for _, blocked := range []string{"OCR_LLM_TOKEN=legacy", "OCR_PROVIDER_TOKEN=legacy-provider"} {
+		if slices.Contains(env, blocked) {
+			t.Fatalf("safe env kept legacy OCR entry %q in %#v", blocked, env)
 		}
 	}
 }

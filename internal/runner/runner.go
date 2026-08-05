@@ -76,37 +76,7 @@ func (r *Runner) Preflight(ctx context.Context) (Identity, error) {
 		return Identity{}, fmt.Errorf("%w: %s", ErrExecutableNotFound, name)
 	}
 	r.lastExecutable = executable
-
-	runCtx, cancel := r.withTimeout(ctx)
-	defer cancel()
-
-	env := safeChildEnv(r.environ())
-	switch r.kind {
-	case Codex:
-		out, err := r.runCommand(runCtx, executable, []string{"login", "status"}, nil, env, "")
-		if err != nil {
-			return Identity{}, err
-		}
-		identity, err := parseCodexStatus(out)
-		if err != nil {
-			return Identity{}, err
-		}
-		identity.Executable = executable
-		return identity, nil
-	case Claude:
-		out, err := r.runCommand(runCtx, executable, []string{"auth", "status", "--json"}, nil, env, "")
-		if err != nil {
-			return Identity{}, err
-		}
-		identity, err := parseClaudeStatus(out)
-		if err != nil {
-			return Identity{}, err
-		}
-		identity.Executable = executable
-		return identity, nil
-	default:
-		return Identity{}, fmt.Errorf("runner: unsupported kind %q", r.kind)
-	}
+	return Identity{Kind: r.kind, Executable: executable, AuthMethod: "native-cli"}, nil
 }
 
 func (r *Runner) Run(ctx context.Context, request Request) (Result, error) {
