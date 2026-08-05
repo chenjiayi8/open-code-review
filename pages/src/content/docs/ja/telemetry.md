@@ -5,8 +5,7 @@ sidebar:
 ---
 
 OCR には第一級の **OpenTelemetry** サポートが付属しています。各レビュー実行は、構造化された span、
-metric、event を生成します。collector に接続すれば、これらのデータは「agent は時間をどこに費やしたか？」、
-「各モデルのコストはどうか？」、「なぜこの実行は失敗したか？」に答えるのに十分です。
+metric、event を生成します。collector に接続すれば、review time、model labels、failure locations の把握に役立ちます。
 
 ## 概要
 
@@ -118,18 +117,18 @@ OCR は OTel meter を通じて数値 metric を記録します——カウン�
 
 ### Event
 
-イベントは決定ポイントで短命な `event.<name>` span としてトリガーされます。完全な一覧：
+イベントは決定ポイントで短命な `event.<name>` span としてトリガーされます。記録される互換 event names は次のとおりです。
 
 | イベント | 意味 |
 |---|---|
-| `review.started` | diff がロードされた。何ファイルをレビューするか判明している。 |
+| `review.started` | diff が読み込まれ、OCR が対象ファイル数を把握した。 |
 | `no.files.changed` | diff の解析で 0 ファイルとなった。 |
 | `plan.skipped` | あるファイルが `PLAN_MODE_LINE_THRESHOLD` を下回った。 |
-| `plan.failed` | plan フェーズでエラー。main ループは plan なしで実行される。 |
-| `token.threshold.exceeded` | 初期 prompt token が `MAX_TOKENS` の 80 % を超えた。ファイルはスキップされる。 |
-| `coverage.incomplete` | runner output が expected manifest entries をすべて cover しなかった。 |
+| `plan.failed` | plan フェーズでエラー。review はその plan なしで続行された。 |
+| `token.threshold.exceeded` | 初期 prompt token が token guard を超え、ファイルがスキップされた。 |
+| `subtask.error` | file-level review item でエラーが発生した。 |
 
-これにより、ユーザーが気づく前に、レビュー品質の低下を早期に検出してアラートを出すことができます。
+Installed OCR version の telemetry output に実際に存在しない限り、runner、validation、output、coverage 用の独立 event names に依存しないでください。Coverage は dedicated telemetry event ではなく、通常の command/session output で報告されます。
 
 ## コンテンツログ
 
@@ -252,5 +251,5 @@ OCR は**すべて**をエクスポートします。サンプリングの設定
 ## 関連項目
 
 - [設定](../configuration/)——`telemetry.*` 名前空間の完全な key リファレンス。
-- [アーキテクチャ](../architecture/)——各 span が実際に何を計測するか。
+- [アーキテクチャ](../architecture/)——review / scan run の構造。
 - [OpenTelemetry ドキュメント](https://opentelemetry.io/docs/)——collector のセットアップと exporter。
