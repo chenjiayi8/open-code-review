@@ -21,7 +21,7 @@ ocr version
 
 ## 第 2 步 — 登录本地 runner
 
-OCR 将 LLM 工作交给已安装的本地 CLI。订阅认证由本地 CLI 负责；OCR 不配置也不使用供应商 API 密钥。
+OCR 将 LLM 工作交给已安装的本地 CLI。订阅认证由本地 CLI 负责；OCR 不保存 runner 凭据。
 
 ```bash
 codex login                 # or: claude auth login --claudeai

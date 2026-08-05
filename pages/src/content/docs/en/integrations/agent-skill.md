@@ -64,7 +64,7 @@ itself executes the steps. End-to-end, a single `/open-code-review`
 3. **Stop and ask if no runner is authenticated.** If `ocr review --preview` fails,
    the agent will *not* invent credentials. It shows the user the two
    supported options (environment variables or `ocr config set …`) and
-   waits for the user to provide an API key.
+   waits for the user to authenticate the selected runner.
 4. **Extract business context.** Inspect the review target (commits,
    branch, working copy) and synthesise a short `--background` string.
 5. **Run the review.** Invoke

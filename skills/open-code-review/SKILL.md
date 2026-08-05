@@ -13,7 +13,7 @@ compatibility: >
   Requires the `ocr` CLI installed (via `npm install -g
   @alibaba-group/open-code-review` or GitHub release binary). Requires an
   authenticated local subscription runner (`codex` or `claude`) before first
-  non-preview run. OCR does not configure or use provider API keys.
+  non-preview run. OCR does not configure or use runner credentials.
 metadata:
   author: alibaba
   homepage: https://github.com/alibaba/open-code-review
@@ -45,7 +45,7 @@ If `ocr` is not installed, install it first:
 npm install -g @alibaba-group/open-code-review
 ```
 
-OCR delegates LLM work to the selected local runner. The installed Codex or Claude CLI owns subscription authentication; OCR does not configure provider endpoints, models, or API keys. Stop and ask the user to authenticate the chosen runner if preflight reports that it is missing or logged out.
+OCR delegates LLM work to the selected local runner. The installed Codex or Claude CLI owns subscription authentication; OCR does not configure runner credentials or provider connection settings. Stop and ask the user to authenticate the chosen runner if preflight reports that it is missing or logged out.
 
 `--runner` is required for `ocr review` and `ocr scan` unless running a read-only/preflight command such as `--preview`. `--runner-model <name>` is optional and applies only to the current invocation. CI authentication is separate from local subscription login; CI jobs must authenticate the selected runner inside CI.
 

@@ -4,7 +4,7 @@ sidebar:
   order: 5
 ---
 
-OCR 不再保存供应商端点、模型或 API 密钥。审查执行由本地订阅支持：OCR 调用已安装的本地 runner，认证归该 runner 管理。
+OCR 不再保存 runner 凭据或供应商连接设置。审查执行由本地订阅支持：OCR 调用已安装的本地 runner，认证归该 runner 管理。
 
 ## 本地订阅 runner
 
@@ -24,4 +24,4 @@ ocr scan --runner claude --path internal/agent
 
 ## CI 认证
 
-本地订阅登录不会自动带到 CI。CI 工作流必须安装 OCR，并在任务内认证所选 Codex 或 Claude runner。不要向 OCR 添加供应商端点或 API 密钥配置命令；CI runner 认证应使用 CI 平台支持的机制。
+本地订阅登录不会自动带到 CI。CI 工作流必须安装 OCR，并在任务内认证所选 Codex 或 Claude runner。不要向 OCR 添加自有凭据配置命令；CI runner 认证应使用 CI 平台支持的机制。

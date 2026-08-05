@@ -8,7 +8,7 @@ Install OCR first:
 npm install -g @alibaba-group/open-code-review
 ```
 
-Authenticate the local subscription runner you want OCR to use. The installed runner CLI owns authentication; OCR does not configure or use provider API keys.
+Authenticate the local subscription runner you want OCR to use. The installed runner CLI owns authentication; OCR does not configure or use runner credentials.
 
 ```bash
 codex login                 # or: claude auth login --claudeai

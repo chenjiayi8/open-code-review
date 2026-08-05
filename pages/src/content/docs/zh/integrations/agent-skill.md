@@ -57,7 +57,7 @@ SKILL.md 是一个 prompt：当调用方 agent 加载它时，由 agent 自身�
    常规设置步骤。
 3. **无 LLM 配置则停下询问。** 若 `ocr review --preview` 失败，agent *不会* 编造凭证。
    它向用户展示两种受支持的方式（环境变量或 `ocr config set …`）并等待用户提供
-   API key。
+   所选 runner 认证。
 4. **提取业务上下文。** 检查评审目标（commit、分支、工作副本）并生成一个简短的
    `--background` 字符串。
 5. **运行评审。** 调用

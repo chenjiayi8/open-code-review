@@ -13,39 +13,23 @@ the steps you ran and the full output.
 
 ### `runner subscription authentication required`
 
+OCR review and scan commands use an installed local subscription runner. For non-preview runs, pass `--runner codex` or `--runner claude` and authenticate that CLI first:
+
+```bash
+codex login                 # or: claude auth login --claudeai
+ocr review --runner codex
+ocr scan --runner claude --path internal/agent
 ```
-runner subscription authentication required; run codex login or claude auth login --claudeai,
-~/.opencodereview/config.json, or ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN/
-ANTHROPIC_MODEL must be set
-```
 
-OCR ran the full endpoint-resolution chain ([Configuration](../configuration/#reuse-existing-environment-variables))
-and didn't find a complete `(URL, token, model)` triple. Either:
+If OCR reports that runner subscription authentication is required, the selected runner is missing, logged out, or unavailable in the current environment. Install/log in to the runner and retry. Do not add OCR endpoint, token, or model variables; OCR does not own those credentials.
 
-- Run `ocr config set llm.url …` / `llm.auth_token …` / `llm.model …`
-  to populate `~/.opencodereview/config.json`, **or**
-- Export `RUNNER_AUTH` / `RUNNER_AUTH` / `RUNNER_MODEL`, **or**
-- Export `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` /
-  `ANTHROPIC_MODEL` if you already use Claude Code.
+### Preview works but review fails
 
-Then `ocr review --preview` to verify connectivity before retrying the review.
+`ocr review --preview` is read-only and does not invoke a runner. A full review can still fail later if `--runner` is missing or the selected Codex/Claude CLI is not authenticated. Re-run the command with `--runner codex` or `--runner claude` after logging in.
 
-### `ocr review --preview` shows the wrong source
+### Authentication failures from the runner
 
-OCR uses the **first** complete triple, not the last. So if your
-config file has all three llm.* keys, env vars are ignored. To make
-env wins, either delete the config keys (`rm` the file or unset by
-hand) or use `ocr config set` to switch to the new values.
-
-### 401 / 403 from `ocr review --preview`
-
-The token is missing scope, expired, or wrong vendor. Anthropic and
-OpenAI use different auth headers and different URL shapes — make sure
-`llm.use_anthropic` matches the URL you're pointing at:
-
-- Anthropic: URL ends `/v1/messages`, `use_anthropic=true`.
-- OpenAI / OpenAI-compatible: URL ends `/v1/chat/completions`,
-  `use_anthropic=false`.
+A login, subscription, quota, or permission error comes from the selected Codex or Claude CLI. Re-authenticate that tool in the same shell or CI job and retry OCR. In CI, authenticate the runner with your CI platform's supported secret/OIDC/device-flow mechanism before invoking `ocr review --runner ...`.
 
 ### `not a git repository`
 

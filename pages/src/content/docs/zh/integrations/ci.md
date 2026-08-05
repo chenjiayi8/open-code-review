@@ -18,12 +18,11 @@ sidebar:
 2. **在 runner 中安装 `ocr`**，通常是
    `npm install -g @alibaba-group/open-code-review`。runner 是临时的，因此每次
    运行都发生。
-3. **从 CI secret 经 `ocr config set` 配置 LLM**（端点、token、model）。没有持久
-   的 `~/.opencodereview` 可回退。
+3. **在 CI job 中认证所选本地 runner**。安装 Codex 或 Claude，然后使用 CI 平台支持的非交互认证机制（例如批准的 secret、OIDC exchange 或 device-flow/bootstrap 步骤）。OCR 本身不直接消费模型服务凭据。
 4. **以区间模式运行评审**，输出机器可读，使 stdout 是干净的 JSON 外壳：
 
    ```bash
-   ocr review \
+   ocr review --runner codex \
      --from "origin/<base-branch>" \
      --to "origin/<head-branch>" \
      --format json \
@@ -37,7 +36,7 @@ sidebar:
    （文件级发现）合并到摘要备注而非内联张贴；若内联批量 API 拒绝请求，张贴步骤也
    回退为普通摘要评论。
 
-始终涉及两类凭据：OCR 用来生成发现的 **LLM 凭据**，以及张贴步骤用来回贴评论的
+始终涉及两类凭据：Codex 或 Claude 用来生成发现的所选 **runner 认证**，以及张贴步骤用来回贴评论的
 **PR/MR 写 token**。GitHub 配方通过 `GITHUB_TOKEN` 自动提供后者；GitLab 建议显式
 配置 `GITLAB_API_TOKEN`，但对 fork MR 会回退使用内置 `CI_JOB_TOKEN`（它可通过
 `/discussions` 发起讨论）——为可靠性推荐使用专用 token。
@@ -54,7 +53,7 @@ sidebar:
    评论按需重跑 OCR。（用 `pull_request_target` 而非 `pull_request`，使即便从
    fork 提交的 PR 也能用上 secret；OCR 只读 diff，不执行 PR 中的代码。）
 - 通过 `npm install -g @alibaba-group/open-code-review` 安装 OCR，用
-  `ocr config set` 写配置，再以分支区间模式运行核心命令。
+  认证所选 Codex 或 Claude runner，再以分支区间模式运行核心命令。
 - 解析 JSON 外壳并通过 GitHub Pull Request Review API 把每条发现作为内联评审评论
   张贴。无行信息的评论合并到摘要正文。若批量提交失败，回退为逐条张贴，并在摘要
   评论中呈现统计。
@@ -75,17 +74,10 @@ curl -o .github/workflows/ocr-review.yml \
 
 | Secret | 必需 | 说明 |
 |---|---|---|
-| `RUNNER_AUTH` | 是 | LLM API 端点（如 `https://api.openai.com/v1/chat/completions`）。 |
-| `RUNNER_AUTH_TOKEN` | 是 | LLM API 的认证 token。此 CI secret 传给 `authenticate the selected runner`。（OCR 的直接环境变量是 `RUNNER_AUTH`，不是 `RUNNER_AUTH_TOKEN`。） |
-| `RUNNER_MODEL` | 否 | 模型名。无默认——必须显式设置。 |
-| `RUNNER_AUTH_MODE` | 否 | Anthropic Claude 模型设为 `true`。 |
+| `CODEX_AUTH` 或 `CLAUDE_AUTH` | 是 | 供 runner 登录步骤使用的 CI secret；具体格式取决于 Codex/Claude CLI 与 CI 平台。 |
+| `GITHUB_TOKEN` | 自动 | GitHub 自动提供，用于回贴 PR review 评论。 |
 
-`GITHUB_TOKEN` 自动提供；工作流声明 `pull-requests: write` 以便张贴评审评论。
-
-> 工作流启动时还会运行
-> `ocr config set llm.extra_body '{"thinking": {"type": "disabled"}}'`，
-> 为不支持该字段的 LLM provider 关闭 thinking-mode 请求。若你的 provider 需保留
-> thinking-mode，删除该行。
+在运行 OCR 前添加 runner 认证步骤，然后用 `--runner codex` 或 `--runner claude` 调用 OCR。不要创建由 OCR 拥有的模型服务凭据变量。
 
 ### 定制
 
@@ -106,7 +98,7 @@ curl -o .github/workflows/ocr-review.yml \
     BASE_REF: ${{ github.base_ref }}
     HEAD_REF: ${{ github.head_ref }}
   run: |
-    ocr review \
+    ocr review --runner codex \
       --background "$PR_TITLE" \
       --from "origin/$BASE_REF" \
       --to "origin/$HEAD_REF" \
@@ -127,7 +119,7 @@ shell 解析该行 *之前* 就已把 `${{ }}` 做了文本替换，因此包含
     BASE_REF: ${{ github.base_ref }}
     HEAD_REF: ${{ github.head_ref }}
   run: |
-    ocr review --rule ./my-rules.json \
+    ocr review --runner codex --rule ./my-rules.json \
       --from "origin/$BASE_REF" \
       --to "origin/$HEAD_REF"
 ```
@@ -136,7 +128,7 @@ schema 见[评审规则](../../review-rules/)。
 
 #### 并发
 
-默认 8 个并行 per-file 子 agent。大 PR 上调低，以免触发 LLM provider 速率限制：
+默认 8 个并行 per-file 子 agent。大 PR 上调低，以免触发 所选 runner 订阅速率限制：
 
 ```yaml
 - name: Run OCR review
@@ -144,7 +136,7 @@ schema 见[评审规则](../../review-rules/)。
     BASE_REF: ${{ github.base_ref }}
     HEAD_REF: ${{ github.head_ref }}
   run: |
-    ocr review --concurrency 5 \
+    ocr review --runner codex --concurrency 5 \
       --from "origin/$BASE_REF" \
       --to "origin/$HEAD_REF"
 ```
@@ -231,13 +223,8 @@ if: |
 | 症状 | 原因 / 修复 |
 |---|---|
 | `Cannot find merge-base` | checkout 步骤用了浅克隆，但区间模式评审需要完整历史。上游工作流在 `actions/checkout` 上设 `fetch-depth: 0`——编辑文件时保留该设置。 |
-| `Failed to parse OCR output` | `RUNNER_AUTH` 或 `RUNNER_AUTH_TOKEN` 缺失或错误。在 *Settings → Secrets and variables → Actions* 下复查值。 |
+| `Failed to parse OCR output` | 所选 runner 未在 CI 中认证。检查 Codex/Claude 登录步骤后重跑 job。 |
 | 评审评论落到错误行 | 通常意味着评审开始到评论张贴之间 diff 发生了偏移。张贴脚本此时回退为普通 issue 评论——无需处理。 |
-
-> **注意。** `OCR_DEBUG` 环境变量目前在 OCR 中**未实现**——设置
-> `OCR_DEBUG: "1"` 无效。此处记录以备将来接入。当前若需详细输出，可检查工作流写
-> 到 `/tmp/ocr-result.json` 和 `/tmp/ocr-stderr.log` 的原始评审 JSON 和 stderr
-> （见下方故障排查），或本地运行 `ocr review`。
 
 ## GitLab CI
 
@@ -246,25 +233,20 @@ if: |
 
 ### 它做什么
 
-- 在 `merge_requests` 事件上触发（所有 MR 事件——创建、更新、重开）。
-- 在 `node:20` 镜像中运行，安装 OCR，通过 `ocr config set` 配置，再以 MR diff 模式
-   运行核心命令。
-- 用内联 Python 脚本解析 JSON 外壳，把每条发现作为 GitLab Discussion（在 diff
-  上内联）张贴，用 MR 的 `versions` 端点计算正确的 `base_sha` / `start_sha` /
-  `head_sha` 以精确定位。对无法内联张贴的评论回退为普通 MR note，并以摘要 note
-  收尾。
+- 在 `merge_requests` 事件上触发。
+- 在 Node 镜像中运行，安装 OCR，认证所选 Codex 或 Claude runner，然后用 `--runner` 以 MR diff 模式运行核心命令。
+- 解析 JSON 外壳并把每条发现发布为 GitLab Discussion；无法内联定位时回退为普通 MR note。
 
 ### 安装
 
-把流水线放进仓库根：
+把流水线放到仓库根目录：
 
 ```bash
 curl -o .gitlab-ci.yml \
   https://raw.githubusercontent.com/alibaba/open-code-review/main/examples/gitlab_ci/.gitlab-ci.yml
 ```
 
-若已有 `.gitlab-ci.yml` 并想保留，把配方放到其他路径并用 `include:`
-引入：
+如果你已有 `.gitlab-ci.yml`，可把配方放到其他路径并 include：
 
 ```yaml
 include:
@@ -275,20 +257,12 @@ include:
 
 在 **Settings → CI/CD → Variables** 下设置：
 
-| 变量 | 必需 | 掩码 | 说明 |
+| 变量 | 必需 | Masked | 说明 |
 |---|---|---|---|
-| `RUNNER_AUTH` | 是 | 否 | LLM API 端点 URL。 |
-| `RUNNER_AUTH_TOKEN` | 是 | 是 | API 认证 token。此 CI 变量传给 `authenticate the selected runner`。（OCR 的直接环境变量是 `RUNNER_AUTH`，不是 `RUNNER_AUTH_TOKEN`。） |
-| `RUNNER_MODEL` | 否 | 否 | 模型名。无默认——必须显式设置。 |
-| `GITLAB_API_TOKEN` | 否 | 是 | 带 `api` scope 的 project / personal / group access token。可选——缺失时回退使用内置 `CI_JOB_TOKEN`（如对 fork MR）。为可靠性推荐专用 `GITLAB_API_TOKEN`。 |
+| `CODEX_AUTH` 或 `CLAUDE_AUTH` | 是 | 是 | runner 登录步骤使用的 CI secret；具体格式取决于 Codex/Claude CLI 与 CI 平台。 |
+| `GITLAB_API_TOKEN` | 否 | 是 | 用于发布评论的 project / personal / group access token，scope 为 `api`。可选；fork MR 可回退使用内置 `CI_JOB_TOKEN`。 |
 
-> GitLab 拒绝短于 8 字符的变量，因此流水线中 `llm.use_anthropic` 硬编码为
-> `false`。要用 Anthropic Claude 模型，直接编辑脚本。
-
-> 流水线启动时还会运行
-> `ocr config set llm.extra_body '{"thinking": {"type": "disabled"}}'`，
-> 为不支持该字段的 LLM provider 关闭 thinking-mode 请求。若你的 provider 需保留
-> thinking-mode，删除该行。
+在 OCR 前添加认证所选 runner 的 pipeline 步骤，然后用 `--runner codex` 或 `--runner claude` 调用 OCR。不要创建由 OCR 拥有的模型服务凭据变量。
 
 > **快速 bot 命名提示。** 对 Project Access Token 和 Group Access Token，
 > token 的**名字**会出现在 MR 讨论旁。把 token 命名为 `OpenCodeReview Bot`，
@@ -308,7 +282,7 @@ include:
 ```yaml
 script:
   - |
-    ocr review \
+    ocr review --runner codex \
       --background "$CI_MERGE_REQUEST_TITLE" \
       --from "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" \
       --to "${CI_COMMIT_SHA}" \
@@ -323,7 +297,7 @@ script:
 ```yaml
 script:
   - |
-    ocr review --rule ./my-rules.json --concurrency 5 \
+    ocr review --runner codex --rule ./my-rules.json --concurrency 5 \
       --from "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" \
       --to "${CI_COMMIT_SHA}"
 ```
@@ -340,8 +314,8 @@ script:
 #### 避免每次推送都复审
 
 `only: [merge_requests]` 在**每次** MR 更新时触发，对长生命周期 MR 会消耗大量
-LLM token。GitLab 无原生“仅在创建时”事件，因此推荐模式是运行评审前检测已有
-OCR note，若有则跳过。把 `ocr review` 调用替换为 Python wrapper：
+runner 订阅额度。GitLab 无原生“仅在创建时”事件，因此推荐模式是运行评审前检测已有
+OCR note，若有则跳过。把 `ocr review --runner codex` 调用替换为 Python wrapper：
 
 ```python
 import json, os, sys, urllib.request
@@ -363,7 +337,7 @@ if any("OpenCodeReview" in n.get("body", "") for n in notes):
     print("OCR already reviewed this MR. Skipping to save tokens.")
     sys.exit(0)
 
-# ...otherwise call `ocr review ...` as usual and write the JSON to
+# ...otherwise call `ocr review --runner codex ...` as usual and write the JSON to
 # the file the posting step expects.
 ```
 
@@ -401,7 +375,7 @@ note，便会继续。
 |---|---|
 | `Cannot find merge-base` | runner 用了浅克隆。上游流水线设 `GIT_DEPTH: 0` 强制完整克隆——编辑文件时保留该设置。 |
 | 张贴时 `API error 403` | `GITLAB_API_TOKEN` 缺 `api` scope、不是项目成员，或——自托管时——由不同实例签发。以 `api` scope 重签并在 *Settings → CI/CD → Variables* 下重新添加。 |
-| `Failed to parse OCR output` | `RUNNER_AUTH` 或 `RUNNER_AUTH_TOKEN` 错误。在 *Settings → CI/CD → Variables* 下复查值。 |
+| `Failed to parse OCR output` | 所选 runner 未在 CI 中认证。检查 Codex/Claude 登录步骤后重跑 job。 |
 | 内联评论落到错误行 | GitLab 内联讨论要求精确 SHA 匹配；张贴脚本取 `versions` 元数据以得到正确的 `base_sha` / `start_sha` / `head_sha`。若某条发现仍无法锚定，回退为普通 MR note。 |
 
 流水线把原始评审 JSON 写到 `/tmp/ocr-result.json`，stderr 写到

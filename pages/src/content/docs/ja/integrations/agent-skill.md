@@ -46,7 +46,7 @@ SKILL.md は一つの prompt です。呼び出し側の agent がそれをロ�
 
 1. **事前チェック。** `which ocr` を実行して CLI が `PATH` 上にあることを確認し、続いて `ocr review --preview` で LLM に到達可能であることを確認します。
 2. **CLI が無ければ自動インストール。** `which ocr` が "NOT INSTALLED" を報告した場合、agent は `npm install -g @alibaba-group/open-code-review` を実行して続行します。ユーザーへの確認は行いません——これは通常のセットアップ手順とみなされます。
-3. **LLM 設定が無ければ止めて尋ねる。** `ocr review --preview` が失敗した場合、agent は認証情報を*でっち上げません*。サポートされている 2 つの方法（環境変数または `ocr config set …`）をユーザーに提示し、API key の提供を待ちます。
+3. **LLM 設定が無ければ止めて尋ねる。** `ocr review --preview` が失敗した場合、agent は認証情報を*でっち上げません*。サポートされている 2 つの方法（環境変数または `ocr config set …`）をユーザーに提示し、選択した runner の認証を待ちます。
 4. **業務コンテキストの抽出。** レビュー対象（commit、ブランチ、作業コピー）を確認し、短い `--background` 文字列を生成します。
 5. **レビューの実行。**
    `ocr review --audience agent --background "…" [--commit | --from/--to]`

@@ -31,7 +31,7 @@ Two exporters are supported:
 
 ## Enabling telemetry
 
-Like the LLM endpoint, telemetry is configured by either persistent
+Like other OCR settings, telemetry is configured by either persistent
 config or environment variables — env wins on conflict.
 
 ### Config-file approach
@@ -68,7 +68,7 @@ export OCR_CONTENT_LOGGING=0                        # reserved / currently a no-
 ```
 
 Setting `OTEL_EXPORTER_OTLP_ENDPOINT` also forces `exporter=otlp` —
-useful for one-off `OTEL_EXPORTER_OTLP_ENDPOINT=… ocr review` runs.
+useful for one-off `OTEL_EXPORTER_OTLP_ENDPOINT=… ocr review --runner codex` runs.
 
 ### Endpoint format
 
@@ -196,7 +196,7 @@ never shipped to the collector.
 ```bash
 ocr config set telemetry.enabled true
 ocr config set telemetry.exporter console
-ocr review --commit HEAD
+ocr review --runner codex --commit HEAD
 ```
 
 Spans print to stdout in human-readable form. Pipe through `less` to
@@ -228,7 +228,7 @@ Then in your shell:
 ```bash
 export OCR_ENABLE_TELEMETRY=1
 export OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
-ocr review --from main --to feature/branch
+ocr review --runner codex --from main --to feature/branch
 ```
 
 Open Tempo → search by `service.name=open-code-review` → click any
@@ -254,16 +254,15 @@ Inject the env in your pipeline step:
 ```yaml
 - name: Code review
   env:
-    RUNNER_AUTH: ${{ secrets.RUNNER_AUTH }}
-    RUNNER_AUTH: ${{ secrets.RUNNER_AUTH }}
-    RUNNER_MODEL: claude-opus-4-6
     OCR_ENABLE_TELEMETRY: "1"
     OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_COLLECTOR_URL }}
     OTEL_SERVICE_NAME: open-code-review-ci
-  run: ocr review --from origin/main --to HEAD --audience agent
+  run: |
+    codex login                 # or: claude auth login --claudeai
+    ocr review --runner codex --from origin/main --to HEAD --audience agent
 ```
 
-The `OTEL_SERVICE_NAME` separates CI traces from human dev runs.
+Authenticate the selected Codex or Claude runner using your CI platform's supported secret/OIDC/device-flow mechanism before invoking OCR. `OTEL_SERVICE_NAME` separates CI traces from local development traces.
 
 ## Resolution priority
 

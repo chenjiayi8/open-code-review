@@ -21,7 +21,7 @@ ocr version
 
 ## Step 2 — Authenticate a local runner
 
-OCR delegates LLM work to an installed local CLI. The local CLI owns subscription authentication; OCR neither configures nor uses provider API keys.
+OCR delegates LLM work to an installed local CLI. The local CLI owns subscription authentication; OCR does not store runner credentials.
 
 ```bash
 codex login                 # or: claude auth login --claudeai

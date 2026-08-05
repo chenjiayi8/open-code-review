@@ -12,40 +12,23 @@ sidebar:
 
 ### `runner subscription authentication required`
 
+OCR の review/scan はインストール済みのローカルサブスクリプション runner を使います。preview 以外では `--runner codex` または `--runner claude` を指定し、先に対応する CLI にログインしてください。
+
+```bash
+codex login                 # or: claude auth login --claudeai
+ocr review --runner codex
+ocr scan --runner claude --path internal/agent
 ```
-runner subscription authentication required; run codex login or claude auth login --claudeai,
-~/.opencodereview/config.json, or ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN/
-ANTHROPIC_MODEL must be set
-```
 
-OCR はエンドポイント解決チェーン全体（[設定](../configuration/#既存の環境変数を再利用する)）を
-たどりましたが、完全な `(URL, token, model)` の三つ組を見つけられませんでした。次のいずれかを
-行ってください。
+このエラーは、選択した runner が見つからない、ログアウトしている、または現在の環境で利用できないことを示します。runner をインストール/ログインしてから再試行してください。OCR 用のエンドポイント、token、モデル変数は追加しません。
 
-- `ocr config set llm.url …` / `llm.auth_token …` / `llm.model …` を実行して
-  `~/.opencodereview/config.json` を埋める、**または**
-- `RUNNER_AUTH` / `RUNNER_AUTH` / `RUNNER_MODEL` をエクスポートする、**または**
-- すでに Claude Code を使っている場合は、`ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` /
-  `ANTHROPIC_MODEL` をエクスポートする。
+### Preview は動くが review が失敗する
 
-その後 `ocr review --preview` で接続性を検証してからレビューを再試行してください。
+`ocr review --preview` は読み取り専用で runner を呼び出しません。完全な review は、`--runner` がない場合や選択した Codex/Claude CLI が未認証の場合に失敗します。ログイン後、`--runner codex` または `--runner claude` 付きで再実行してください。
 
-### `ocr review --preview` が誤ったソースを表示する
+### Runner の認証エラー
 
-OCR は**最後**ではなく**最初**の完全な三つ組を採用します。したがって、設定ファイルに
-すでに 3 つの llm.* key がすべて揃っていると、環境変数は無視されます。環境変数を有効にするには、
-設定 key を削除する（ファイルを削除するか手動で unset する）か、`ocr config set` で新しい値に
-切り替えてください。
-
-### `ocr review --preview` が 401 / 403 を返す
-
-token に scope が不足している、期限切れ、あるいはプロバイダーが一致していません。Anthropic と
-OpenAI は異なる auth header と URL フォーマットを使います——`llm.use_anthropic` が指し先の URL と
-一致していることを確認してください。
-
-- Anthropic: URL は `/v1/messages` で終わり、`use_anthropic=true`。
-- OpenAI / OpenAI 互換: URL は `/v1/chat/completions` で終わり、
-  `use_anthropic=false`。
+ログイン、サブスクリプション、quota、権限エラーは選択した Codex または Claude CLI から返されます。同じ shell または CI job 内でそのツールを再認証してから OCR を再実行してください。CI では、`ocr review --runner ...` の前に CI プラットフォームがサポートする secret/OIDC/device-flow などで runner を認証します。
 
 ### `not a git repository`
 

@@ -15,11 +15,11 @@ sidebar:
    `/open-code-review` コメントがジョブをトリガーします。
 2. **runner に `ocr` をインストール**します。通常は
    `npm install -g @alibaba-group/open-code-review` です。runner は一時的なため、これは実行のたびに発生します。
-3. **CI secret から `ocr config set` 経由で LLM を設定**します（エンドポイント、token、model）。フォールバックできる永続的な `~/.opencodereview` はありません。
+3. **CI job 内で選択したローカル runner を認証**します。Codex または Claude をインストールし、CI プラットフォームがサポートする非対話認証（承認済み secret、OIDC exchange、device-flow/bootstrap 手順など）を使います。OCR 自体はモデルサービス認証情報を直接消費しません。
 4. **区間モードでレビューを実行**し、機械可読な出力を得ることで、stdout がクリーンな JSON の外殻になるようにします。
 
    ```bash
-   ocr review \
+   ocr review --runner codex \
      --from "origin/<base-branch>" \
      --to "origin/<head-branch>" \
      --format json \
@@ -30,7 +30,7 @@ sidebar:
 5. **JSON を解析**し、`comments[]` を反復処理します。
 6. **プロバイダーの review API を通じてコメントを PR / MR に貼り戻します。** 有効な行情報を持たない項目（ファイルレベルの発見）はインラインで貼り付けるのではなくサマリーの注記にまとめられます。インラインの一括 API がリクエストを拒否した場合、貼り付け手順も通常のサマリーコメントにフォールバックします。
 
-常に 2 種類の認証情報が関わります。OCR が発見を生成するために使う **LLM 認証情報**と、貼り付け手順がコメントを貼り戻すために使う **PR/MR 書き込み token** です。GitHub のレシピは `GITHUB_TOKEN` を通じて後者を自動的に提供します。GitLab では `GITLAB_API_TOKEN` を明示的に設定することを推奨しますが、fork MR に対しては組み込みの `CI_JOB_TOKEN` にフォールバックします（これは `/discussions` を通じてディスカッションを開始できます）——信頼性のためには専用の token の使用を推奨します。
+常に 2 種類の認証情報が関わります。Codex または Claude が発見を生成するために使う、選択された **runner 認証**と、貼り付け手順がコメントを貼り戻すために使う **PR/MR 書き込み token** です。GitHub のレシピは `GITHUB_TOKEN` を通じて後者を自動的に提供します。GitLab では `GITLAB_API_TOKEN` を明示的に設定することを推奨しますが、fork MR に対しては組み込みの `CI_JOB_TOKEN` にフォールバックします（これは `/discussions` を通じてディスカッションを開始できます）——信頼性のためには専用の token の使用を推奨します。
 
 ## GitHub Actions
 
@@ -42,7 +42,7 @@ sidebar:
 
 - `pull_request_target`（`opened`）**および** `issue_comment` イベント（本文が
   `/open-code-review` または `@open-code-review` で始まるもの）でトリガーします。後者はレビュアーが PR にコメントすることで OCR をオンデマンドで再実行できるようにします。（`pull_request` ではなく `pull_request_target` を使うことで、fork から提出された PR でも secret を利用できます。OCR は diff を読むだけで、PR 内のコードは実行しません。）
-- `npm install -g @alibaba-group/open-code-review` で OCR をインストールし、`ocr config set` で設定を書き込み、ブランチ区間モードで中核コマンドを実行します。
+- `npm install -g @alibaba-group/open-code-review` で OCR をインストールし、選択した Codex または Claude runner を認証し、ブランチ区間モードで中核コマンドを実行します。
 - JSON の外殻を解析し、GitHub Pull Request Review API を通じて各発見をインラインのレビューコメントとして貼り付けます。行情報を持たないコメントはサマリー本文にまとめられます。一括送信が失敗した場合は 1 件ずつの貼り付けにフォールバックし、統計をサマリーコメントに表示します。
 
 ### インストール
@@ -61,17 +61,10 @@ curl -o .github/workflows/ocr-review.yml \
 
 | Secret | 必須 | 説明 |
 |---|---|---|
-| `RUNNER_AUTH` | はい | LLM API エンドポイント（例：`https://api.openai.com/v1/chat/completions`）。 |
-| `RUNNER_AUTH_TOKEN` | はい | LLM API の認証 token。この CI secret は `authenticate the selected runner` に渡されます。（OCR の直接の環境変数は `RUNNER_AUTH` であり、`RUNNER_AUTH_TOKEN` ではありません。） |
-| `RUNNER_MODEL` | いいえ | モデル名。デフォルトはありません——明示的に設定する必要があります。 |
-| `RUNNER_AUTH_MODE` | いいえ | Anthropic Claude モデルの場合は `true` に設定します。 |
+| `CODEX_AUTH` または `CLAUDE_AUTH` | はい | runner ログイン手順が使う CI secret。形式は Codex/Claude CLI と CI プラットフォームに依存します。 |
+| `GITHUB_TOKEN` | 自動 | PR review コメント投稿用に GitHub が提供します。 |
 
-`GITHUB_TOKEN` は自動的に提供されます。ワークフローはレビューコメントを貼り付けるために `pull-requests: write` を宣言しています。
-
-> ワークフロー起動時には
-> `ocr config set llm.extra_body '{"thinking": {"type": "disabled"}}'`
-> も実行され、このフィールドをサポートしない LLM プロバイダー向けに thinking-mode リクエストをオフにします。プロバイダーが thinking-mode を維持する必要がある場合は、その行を削除してください。
-
+OCR の前に runner 認証ステップを追加し、`--runner codex` または `--runner claude` で OCR を実行します。OCR 所有のモデルサービス認証情報変数は作成しません。
 ### カスタマイズ
 
 以下はすべて、あなたがコピーしたばかりのワークフローファイル
@@ -88,7 +81,7 @@ curl -o .github/workflows/ocr-review.yml \
     BASE_REF: ${{ github.base_ref }}
     HEAD_REF: ${{ github.head_ref }}
   run: |
-    ocr review \
+    ocr review --runner codex \
       --background "$PR_TITLE" \
       --from "origin/$BASE_REF" \
       --to "origin/$HEAD_REF" \
@@ -107,7 +100,7 @@ PR で制御可能な値は `${{ }}` を `run:` に直接展開するのでは�
     BASE_REF: ${{ github.base_ref }}
     HEAD_REF: ${{ github.head_ref }}
   run: |
-    ocr review --rule ./my-rules.json \
+    ocr review --runner codex --rule ./my-rules.json \
       --from "origin/$BASE_REF" \
       --to "origin/$HEAD_REF"
 ```
@@ -116,7 +109,7 @@ PR で制御可能な値は `${{ }}` を `run:` に直接展開するのでは�
 
 #### 並行数
 
-デフォルトはファイルごとに 8 つの並行サブ agent です。大きな PR では、LLM プロバイダーのレート制限に抵触しないよう下げてください。
+デフォルトはファイルごとに 8 つの並行サブ agent です。大きな PR では、選択した runner サブスクリプションのレート制限に抵触しないよう下げてください。
 
 ```yaml
 - name: Run OCR review
@@ -124,7 +117,7 @@ PR で制御可能な値は `${{ }}` を `run:` に直接展開するのでは�
     BASE_REF: ${{ github.base_ref }}
     HEAD_REF: ${{ github.head_ref }}
   run: |
-    ocr review --concurrency 5 \
+    ocr review --runner codex --concurrency 5 \
       --from "origin/$BASE_REF" \
       --to "origin/$HEAD_REF"
 ```
@@ -209,60 +202,48 @@ if: |
 | 症状 | 原因 / 修正 |
 |---|---|
 | `Cannot find merge-base` | checkout 手順が浅いクローンを使っていますが、区間モードのレビューには完全な履歴が必要です。上流のワークフローは `actions/checkout` に `fetch-depth: 0` を設定しています——ファイルを編集する際はこの設定を保持してください。 |
-| `Failed to parse OCR output` | `RUNNER_AUTH` または `RUNNER_AUTH_TOKEN` が欠落しているか誤っています。*Settings → Secrets and variables → Actions* で値を再確認してください。 |
+| `Failed to parse OCR output` | 選択した runner が CI で認証されていません。Codex/Claude のログイン手順を確認して job を再実行してください。 |
 | レビューコメントが誤った行に付く | 通常、レビュー開始からコメント貼り付けの間に diff がずれたことを意味します。貼り付けスクリプトはこの場合、通常の issue コメントにフォールバックします——対処は不要です。 |
 
-> **注意。** `OCR_DEBUG` 環境変数は現在 OCR で**未実装**です——`OCR_DEBUG: "1"` を設定しても効果はありません。将来の対応に備えてここに記載しています。現時点で詳細な出力が必要な場合は、ワークフローが `/tmp/ocr-result.json` と `/tmp/ocr-stderr.log` に書き込む生のレビュー JSON と stderr を確認するか（下記のトラブルシューティングを参照）、ローカルで `ocr review` を実行してください。
-
+> **手軽な bot 命名のヒント。** Project Access Token と Group Access Token では、
 ## GitLab CI
 
 上流のパイプラインは
-[`examples/gitlab_ci/.gitlab-ci.yml`](https://github.com/alibaba/open-code-review/blob/main/examples/gitlab_ci/.gitlab-ci.yml)
-にあります。
+[`examples/gitlab_ci/.gitlab-ci.yml`](https://github.com/alibaba/open-code-review/blob/main/examples/gitlab_ci/.gitlab-ci.yml) にあります。
 
 ### 何をするか
 
-- `merge_requests` イベント（作成、更新、再オープンといったすべての MR イベント）でトリガーします。
-- `node:20` イメージで実行し、OCR をインストールし、`ocr config set` で設定し、MR diff モードで中核コマンドを実行します。
-- インラインの Python スクリプトで JSON の外殻を解析し、各発見を GitLab Discussion として（diff 上にインラインで）投稿します。MR の `versions` エンドポイントを使って正しい `base_sha` / `start_sha` /
-  `head_sha` を計算し、正確に位置決めします。インラインで投稿できないコメントは通常の MR note にフォールバックし、最後にサマリー note で締めくくります。
+- `merge_requests` イベントでトリガーします。
+- Node イメージで OCR をインストールし、選択した Codex または Claude runner を認証してから、`--runner` 付きで MR diff モードのコアコマンドを実行します。
+- JSON エンベロープを解析し、各発見を GitLab Discussion として投稿します。インライン位置を特定できない場合は通常の MR note にフォールバックします。
 
 ### インストール
 
-パイプラインをリポジトリのルートに配置します。
+パイプラインをリポジトリルートに配置します。
 
 ```bash
 curl -o .gitlab-ci.yml \
   https://raw.githubusercontent.com/alibaba/open-code-review/main/examples/gitlab_ci/.gitlab-ci.yml
 ```
 
-すでに `.gitlab-ci.yml` があり、それを保持したい場合は、レシピを別のパスに配置して `include:`
-で取り込みます。
+既存の `.gitlab-ci.yml` がある場合は、別パスに vendoring して include できます。
 
 ```yaml
 include:
   - local: 'ci/ocr-review.gitlab-ci.yml'
 ```
 
-### 必須の CI/CD 変数
+### 必須 CI/CD 変数
 
 **Settings → CI/CD → Variables** で設定します。
 
-| 変数 | 必須 | マスク | 説明 |
+| 変数 | 必須 | Masked | 説明 |
 |---|---|---|---|
-| `RUNNER_AUTH` | はい | いいえ | LLM API エンドポイント URL。 |
-| `RUNNER_AUTH_TOKEN` | はい | はい | API 認証 token。この CI 変数は `authenticate the selected runner` に渡されます。（OCR の直接の環境変数は `RUNNER_AUTH` であり、`RUNNER_AUTH_TOKEN` ではありません。） |
-| `RUNNER_MODEL` | いいえ | いいえ | モデル名。デフォルトはありません——明示的に設定する必要があります。 |
-| `GITLAB_API_TOKEN` | いいえ | はい | `api` scope を持つ project / personal / group access token。オプションです——欠落時は組み込みの `CI_JOB_TOKEN` にフォールバックします（fork MR など）。信頼性のためには専用の `GITLAB_API_TOKEN` を推奨します。 |
+| `CODEX_AUTH` または `CLAUDE_AUTH` | はい | はい | runner ログイン手順が使う CI secret。形式は Codex/Claude CLI と CI プラットフォームに依存します。 |
+| `GITLAB_API_TOKEN` | いいえ | はい | コメント投稿用の project / personal / group access token。scope は `api`。任意です。fork MR では組み込みの `CI_JOB_TOKEN` にフォールバックできます。 |
 
-> GitLab は 8 文字未満の変数を拒否するため、パイプライン内で `llm.use_anthropic` は
-> `false` にハードコードされています。Anthropic Claude モデルを使うには、スクリプトを直接編集してください。
+OCR の前に選択した runner を認証するパイプライン手順を追加し、`--runner codex` または `--runner claude` で OCR を呼び出します。OCR 所有のモデルサービス認証情報変数は作成しません。
 
-> パイプライン起動時には
-> `ocr config set llm.extra_body '{"thinking": {"type": "disabled"}}'`
-> も実行され、このフィールドをサポートしない LLM プロバイダー向けに thinking-mode リクエストをオフにします。プロバイダーが thinking-mode を維持する必要がある場合は、その行を削除してください。
-
-> **手軽な bot 命名のヒント。** Project Access Token と Group Access Token では、
 > token の**名前**が MR ディスカッションの横に表示されます。token を `OpenCodeReview Bot` と命名すれば、追加設定なしでレビューディスカッションにブランド名を付けられます——[サービスアカウント名義で投稿する](#post-under-a-service-account-identity)に記載のより永続的なサービスアカウント設定が不要なときに便利です。
 
 ### カスタマイズ
@@ -277,7 +258,7 @@ MR タイトルを `--background` に渡します——タイトルが `feat(aut
 ```yaml
 script:
   - |
-    ocr review \
+    ocr review --runner codex \
       --background "$CI_MERGE_REQUEST_TITLE" \
       --from "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" \
       --to "${CI_COMMIT_SHA}" \
@@ -292,7 +273,7 @@ GitHub Actions のレシピと同じ引数です——`--rule` でプロジェ�
 ```yaml
 script:
   - |
-    ocr review --rule ./my-rules.json --concurrency 5 \
+    ocr review --runner codex --rule ./my-rules.json --concurrency 5 \
       --from "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" \
       --to "${CI_COMMIT_SHA}"
 ```
@@ -308,7 +289,7 @@ script:
 
 #### プッシュのたびの再レビューを避ける
 
-`only: [merge_requests]` は **MR の更新のたびに**トリガーするため、長期にわたる MR では大量の LLM token を消費します。GitLab にはネイティブの「作成時のみ」イベントがないため、推奨されるパターンは、レビューを実行する前に既存の OCR note を検出し、あればスキップすることです。`ocr review` の呼び出しを Python wrapper に置き換えます。
+`only: [merge_requests]` は **MR の更新のたびに**トリガーするため、長期にわたる MR ではrunner サブスクリプションの quota を大量に消費します。GitLab にはネイティブの「作成時のみ」イベントがないため、推奨されるパターンは、レビューを実行する前に既存の OCR note を検出し、あればスキップすることです。`ocr review --runner codex` の呼び出しを Python wrapper に置き換えます。
 
 ```python
 import json, os, sys, urllib.request
@@ -330,7 +311,7 @@ if any("OpenCodeReview" in n.get("body", "") for n in notes):
     print("OCR already reviewed this MR. Skipping to save tokens.")
     sys.exit(0)
 
-# ...otherwise call `ocr review ...` as usual and write the JSON to
+# ...otherwise call `ocr review --runner codex ...` as usual and write the JSON to
 # the file the posting step expects.
 ```
 
@@ -360,7 +341,7 @@ if any("OpenCodeReview" in n.get("body", "") for n in notes):
 |---|---|
 | `Cannot find merge-base` | runner が浅いクローンを使っています。上流のパイプラインは `GIT_DEPTH: 0` を設定して完全なクローンを強制します——ファイルを編集する際はこの設定を保持してください。 |
 | 投稿時の `API error 403` | `GITLAB_API_TOKEN` に `api` scope が無い、プロジェクトのメンバーでない、または——セルフホストの場合——別のインスタンスによって発行されています。`api` scope で再発行し、*Settings → CI/CD → Variables* で再登録してください。 |
-| `Failed to parse OCR output` | `RUNNER_AUTH` または `RUNNER_AUTH_TOKEN` が誤っています。*Settings → CI/CD → Variables* で値を再確認してください。 |
+| `Failed to parse OCR output` | 選択した runner が CI で認証されていません。Codex/Claude のログイン手順を確認して job を再実行してください。 |
 | インラインコメントが誤った行に付く | GitLab のインラインディスカッションは正確な SHA の一致を要求します。貼り付けスクリプトは `versions` メタデータを取得して正しい `base_sha` / `start_sha` / `head_sha` を得ます。それでも発見をアンカーできない場合は、通常の MR note にフォールバックします。 |
 
 パイプラインは生のレビュー JSON を `/tmp/ocr-result.json` に、stderr を

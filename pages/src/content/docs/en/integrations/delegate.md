@@ -19,7 +19,7 @@ agent's existing subscription quota to perform the review.
 Use delegation mode when:
 
 1. Your AI coding agent runs on a subscription plan and you want to
-   reuse that quota for code review — no extra API key or model
+   reuse that quota for code review — no extra OCR credential setup
    configuration needed.
 2. You want OCR only for its engineering scaffolding — file filtering,
    rule resolution, exclusion logic — while the host agent handles all

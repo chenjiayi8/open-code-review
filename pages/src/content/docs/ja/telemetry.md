@@ -28,7 +28,7 @@ metric、event を生成します。collector に接続すれば、これらの�
 
 ## テレメトリを有効にする
 
-LLM エンドポイントと同様に、テレメトリは永続化された config または環境変数で設定できます——競合する場合は環境変数が優先されます。
+他の OCR 設定と同様に、テレメトリは永続化された config または環境変数で設定できます——競合する場合は環境変数が優先されます。
 
 ### 設定ファイルによる方法
 
@@ -64,7 +64,7 @@ export OCR_CONTENT_LOGGING=0                        # reserved / currently a no-
 ```
 
 `OTEL_EXPORTER_OTLP_ENDPOINT` を設定すると `exporter=otlp` も強制されます——一度きりの
-`OTEL_EXPORTER_OTLP_ENDPOINT=… ocr review` 実行に適しています。
+`OTEL_EXPORTER_OTLP_ENDPOINT=… ocr review --runner codex` 実行に適しています。
 
 ## 何がエクスポートされるか
 
@@ -150,7 +150,7 @@ JSONL トランスクリプトを使用してください。これらは完全�
 ```bash
 ocr config set telemetry.enabled true
 ocr config set telemetry.exporter console
-ocr review --commit HEAD
+ocr review --runner codex --commit HEAD
 ```
 
 span が人間可読な形式で stdout に出力されます。長い実行の出力を見るには `less` にパイプできます。
@@ -181,7 +181,7 @@ service:
 ```bash
 export OCR_ENABLE_TELEMETRY=1
 export OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
-ocr review --from main --to feature/branch
+ocr review --runner codex --from main --to feature/branch
 ```
 
 Tempo を開く → `service.name=open-code-review` で検索 → 任意の trace をクリックして完全な
@@ -206,16 +206,15 @@ span はその service name で APM 配下に現れます。LLM metric は上記
 ```yaml
 - name: Code review
   env:
-    RUNNER_AUTH: ${{ secrets.RUNNER_AUTH }}
-    RUNNER_AUTH: ${{ secrets.RUNNER_AUTH }}
-    RUNNER_MODEL: claude-opus-4-6
     OCR_ENABLE_TELEMETRY: "1"
     OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_COLLECTOR_URL }}
     OTEL_SERVICE_NAME: open-code-review-ci
-  run: ocr review --from origin/main --to HEAD --audience agent
+  run: |
+    codex login                 # or: claude auth login --claudeai
+    ocr review --runner codex --from origin/main --to HEAD --audience agent
 ```
 
-`OTEL_SERVICE_NAME` により、CI の trace を手動の開発実行の trace と区別できます。
+OCR を呼び出す前に、CI プラットフォームがサポートする secret/OIDC/device-flow などで選択した Codex または Claude runner を認証してください。`OTEL_SERVICE_NAME` により、CI の trace を手動の開発実行の trace と区別できます。
 
 ## 解決の優先順位
 

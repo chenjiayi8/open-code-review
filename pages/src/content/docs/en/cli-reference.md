@@ -8,7 +8,7 @@ The complete reference for local subscription runner review commands.
 
 ## Authentication
 
-OCR does not manage provider endpoints, provider models, or API keys. Authenticate the installed runner CLI first:
+OCR does not manage runner credentials or provider connection settings. Authenticate the installed runner CLI first:
 
 ```bash
 codex login                 # or: claude auth login --claudeai

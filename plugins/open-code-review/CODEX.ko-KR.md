@@ -102,7 +102,7 @@ ocr review --preview
 ## 주의사항
 
 - 이 플러그인은 OCR provider endpoint를 설정하지 않습니다.
-- 이 플러그인은 OCR API key나 provider 모델 설정을 요구하지 않습니다.
-- OCR 자체는 provider/API key 설정을 사용하지 않으며 로컬 runner 인증을 사용합니다.
+- 이 플러그인은 OCR 자체 credential 설정을 요구하지 않습니다.
+- OCR 자체는 OCR 자체 credential 설정을 사용하지 않으며 로컬 runner 인증을 사용합니다.
 - 파일 수정은 사용자가 명시적으로 요청한 경우에만 수행합니다.
 - commit 생성은 사용자가 명시적으로 요청한 경우에만 수행합니다.

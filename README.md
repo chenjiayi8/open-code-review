@@ -114,7 +114,7 @@ For other installation methods (install script, GitHub Release binary, from sour
 
 **1. Authenticate a local runner**
 
-OCR now runs through an installed local CLI subscription. Log in to the runner you want to use; OCR never configures or uses provider API keys itself.
+OCR now runs through an installed local CLI subscription. Log in to the runner you want to use; OCR never stores runner credentials itself.
 
 ```bash
 codex login                 # or: claude auth login --claudeai
@@ -124,7 +124,7 @@ ocr scan --runner claude --path internal/agent
 
 `--runner` is required for `ocr review` and `ocr scan` unless you are using read-only/preflight flags such as `--preview`. Use `--runner-model <name>` only when you want to override the runner's default model for one run.
 
-For local setup, see [Configuration](https://open-codereview.ai/docs/configuration). CI authentication is separate: CI jobs should authenticate the selected runner in that environment instead of storing OCR provider credentials.
+For local setup, see [Configuration](https://open-codereview.ai/docs/configuration). CI authentication is separate: CI jobs should authenticate the selected runner in that environment instead of storing OCR-owned credentials.
 
 **2. Review**
 
