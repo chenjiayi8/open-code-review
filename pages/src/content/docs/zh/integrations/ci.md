@@ -75,10 +75,10 @@ curl -o .github/workflows/ocr-review.yml \
 
 | Secret | 必需 | 说明 |
 |---|---|---|
-| `OCR_LLM_URL` | 是 | LLM API 端点（如 `https://api.openai.com/v1/chat/completions`）。 |
-| `OCR_LLM_AUTH_TOKEN` | 是 | LLM API 的认证 token。此 CI secret 传给 `ocr config set llm.auth_token`。（OCR 的直接环境变量是 `OCR_LLM_TOKEN`，不是 `OCR_LLM_AUTH_TOKEN`。） |
-| `OCR_LLM_MODEL` | 否 | 模型名。无默认——必须显式设置。 |
-| `OCR_LLM_USE_ANTHROPIC` | 否 | Anthropic Claude 模型设为 `true`。 |
+| `RUNNER_AUTH` | 是 | LLM API 端点（如 `https://api.openai.com/v1/chat/completions`）。 |
+| `RUNNER_AUTH_TOKEN` | 是 | LLM API 的认证 token。此 CI secret 传给 `authenticate the selected runner`。（OCR 的直接环境变量是 `RUNNER_AUTH`，不是 `RUNNER_AUTH_TOKEN`。） |
+| `RUNNER_MODEL` | 否 | 模型名。无默认——必须显式设置。 |
+| `RUNNER_AUTH_MODE` | 否 | Anthropic Claude 模型设为 `true`。 |
 
 `GITHUB_TOKEN` 自动提供；工作流声明 `pull-requests: write` 以便张贴评审评论。
 
@@ -231,7 +231,7 @@ if: |
 | 症状 | 原因 / 修复 |
 |---|---|
 | `Cannot find merge-base` | checkout 步骤用了浅克隆，但区间模式评审需要完整历史。上游工作流在 `actions/checkout` 上设 `fetch-depth: 0`——编辑文件时保留该设置。 |
-| `Failed to parse OCR output` | `OCR_LLM_URL` 或 `OCR_LLM_AUTH_TOKEN` 缺失或错误。在 *Settings → Secrets and variables → Actions* 下复查值。 |
+| `Failed to parse OCR output` | `RUNNER_AUTH` 或 `RUNNER_AUTH_TOKEN` 缺失或错误。在 *Settings → Secrets and variables → Actions* 下复查值。 |
 | 评审评论落到错误行 | 通常意味着评审开始到评论张贴之间 diff 发生了偏移。张贴脚本此时回退为普通 issue 评论——无需处理。 |
 
 > **注意。** `OCR_DEBUG` 环境变量目前在 OCR 中**未实现**——设置
@@ -277,9 +277,9 @@ include:
 
 | 变量 | 必需 | 掩码 | 说明 |
 |---|---|---|---|
-| `OCR_LLM_URL` | 是 | 否 | LLM API 端点 URL。 |
-| `OCR_LLM_AUTH_TOKEN` | 是 | 是 | API 认证 token。此 CI 变量传给 `ocr config set llm.auth_token`。（OCR 的直接环境变量是 `OCR_LLM_TOKEN`，不是 `OCR_LLM_AUTH_TOKEN`。） |
-| `OCR_LLM_MODEL` | 否 | 否 | 模型名。无默认——必须显式设置。 |
+| `RUNNER_AUTH` | 是 | 否 | LLM API 端点 URL。 |
+| `RUNNER_AUTH_TOKEN` | 是 | 是 | API 认证 token。此 CI 变量传给 `authenticate the selected runner`。（OCR 的直接环境变量是 `RUNNER_AUTH`，不是 `RUNNER_AUTH_TOKEN`。） |
+| `RUNNER_MODEL` | 否 | 否 | 模型名。无默认——必须显式设置。 |
 | `GITLAB_API_TOKEN` | 否 | 是 | 带 `api` scope 的 project / personal / group access token。可选——缺失时回退使用内置 `CI_JOB_TOKEN`（如对 fork MR）。为可靠性推荐专用 `GITLAB_API_TOKEN`。 |
 
 > GitLab 拒绝短于 8 字符的变量，因此流水线中 `llm.use_anthropic` 硬编码为
@@ -401,7 +401,7 @@ note，便会继续。
 |---|---|
 | `Cannot find merge-base` | runner 用了浅克隆。上游流水线设 `GIT_DEPTH: 0` 强制完整克隆——编辑文件时保留该设置。 |
 | 张贴时 `API error 403` | `GITLAB_API_TOKEN` 缺 `api` scope、不是项目成员，或——自托管时——由不同实例签发。以 `api` scope 重签并在 *Settings → CI/CD → Variables* 下重新添加。 |
-| `Failed to parse OCR output` | `OCR_LLM_URL` 或 `OCR_LLM_AUTH_TOKEN` 错误。在 *Settings → CI/CD → Variables* 下复查值。 |
+| `Failed to parse OCR output` | `RUNNER_AUTH` 或 `RUNNER_AUTH_TOKEN` 错误。在 *Settings → CI/CD → Variables* 下复查值。 |
 | 内联评论落到错误行 | GitLab 内联讨论要求精确 SHA 匹配；张贴脚本取 `versions` 元数据以得到正确的 `base_sha` / `start_sha` / `head_sha`。若某条发现仍无法锚定，回退为普通 MR note。 |
 
 流水线把原始评审 JSON 写到 `/tmp/ocr-result.json`，stderr 写到

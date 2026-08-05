@@ -131,11 +131,13 @@ test("ocr_review creates agent-friendly workspace arguments", async () => {
     async (worktree) => {
       const { hooks } = await loadPlugin(worktree)
       const output = await hooks.tool.ocr_review.execute(
-        { background: "Add rate limiting" },
+        { runner: "codex", background: "Add rate limiting" },
         toolContext(worktree),
       )
       assert.deepEqual(JSON.parse(output).argv, [
         "review",
+        "--runner",
+        "codex",
         "--audience",
         "agent",
         "--format",
@@ -156,6 +158,8 @@ test("ocr_review passes suspicious-looking refs as one argv value without a shel
       const { hooks } = await loadPlugin(worktree)
       const output = await hooks.tool.ocr_review.execute(
         {
+          runner: "claude",
+          runnerModel: "sonnet",
           commit: "main; touch /tmp/unsafe",
           exclude: "**/*.generated.ts,dist/**",
         },
@@ -163,6 +167,8 @@ test("ocr_review passes suspicious-looking refs as one argv value without a shel
       )
       assert.deepEqual(JSON.parse(output).argv, [
         "review",
+        "--runner",
+        "claude",
         "--audience",
         "agent",
         "--format",
@@ -173,6 +179,8 @@ test("ocr_review passes suspicious-looking refs as one argv value without a shel
         "main; touch /tmp/unsafe",
         "--exclude",
         "**/*.generated.ts,dist/**",
+        "--runner-model",
+        "sonnet",
       ])
     },
   )
@@ -184,24 +192,39 @@ test("ocr_review rejects incompatible review targets before starting OCR", async
 
     await assert.rejects(
       hooks.tool.ocr_review.execute(
-        { commit: "abc", from: "main", to: "feature" },
+        { runner: "codex", commit: "abc", from: "main", to: "feature" },
         toolContext(worktree),
       ),
       /either 'commit' or a 'from'\/'to' range/,
     )
     await assert.rejects(
       hooks.tool.ocr_review.execute(
-        { from: "main" },
+        { runner: "codex", from: "main" },
         toolContext(worktree),
       ),
       /Both 'from' and 'to'/,
     )
     await assert.rejects(
       hooks.tool.ocr_review.execute(
-        { preview: true, resume: "session-1" },
+        { runner: "codex", preview: true, resume: "session-1" },
         toolContext(worktree),
       ),
       /cannot be used together/,
+    )
+  })
+})
+
+test("ocr_review requires a supported runner", async () => {
+  await withTemporaryDirectory(async (worktree) => {
+    const { hooks } = await loadPlugin(worktree)
+
+    await assert.rejects(
+      hooks.tool.ocr_review.execute({}, toolContext(worktree)),
+      /runner is required/,
+    )
+    await assert.rejects(
+      hooks.tool.ocr_review.execute({ runner: "openai" }, toolContext(worktree)),
+      /must be 'codex' or 'claude'/,
     )
   })
 })
@@ -212,11 +235,13 @@ test("preview omits JSON mode and adds --preview", async () => {
     async (worktree) => {
       const { hooks } = await loadPlugin(worktree)
       const output = await hooks.tool.ocr_review.execute(
-        { preview: true },
+        { runner: "claude", preview: true },
         toolContext(worktree),
       )
       assert.deepEqual(output.split("\n"), [
         "review",
+        "--runner",
+        "claude",
         "--audience",
         "agent",
         "--repo",
@@ -233,7 +258,7 @@ test("ocr_review reports non-zero exits with OCR output", async () => {
     async (worktree) => {
       const { hooks } = await loadPlugin(worktree)
       await assert.rejects(
-        hooks.tool.ocr_review.execute({}, toolContext(worktree)),
+        hooks.tool.ocr_review.execute({ runner: "codex" }, toolContext(worktree)),
         (error) => {
           assert.equal(error.name, "OcrExecutionError")
           assert.equal(error.exitCode, 7)
@@ -252,7 +277,7 @@ test("ocr_review explains how to install a missing OCR executable", async () => 
     try {
       const { hooks } = await loadPlugin(directory)
       await assert.rejects(
-        hooks.tool.ocr_review.execute({}, toolContext(directory)),
+        hooks.tool.ocr_review.execute({ runner: "codex" }, toolContext(directory)),
         /npm install -g @alibaba-group\/open-code-review/,
       )
     } finally {
@@ -270,7 +295,7 @@ test("ocr_review terminates when OpenCode cancels the tool", async () => {
       setTimeout(() => controller.abort(), 20)
       await assert.rejects(
         hooks.tool.ocr_review.execute(
-          {},
+          { runner: "codex" },
           toolContext(worktree, controller.signal),
         ),
         /cancelled by OpenCode/,
@@ -290,7 +315,7 @@ test("ocr_review force-kills a child that ignores cancellation", async () => {
       const { hooks } = await loadPlugin(worktree)
       const controller = new AbortController()
       const execution = hooks.tool.ocr_review.execute(
-        {},
+        { runner: "codex" },
         toolContext(worktree, controller.signal),
       )
       const pidPath = join(worktree, "ocr-child.pid")
@@ -317,7 +342,7 @@ test("ocr_review terminates after its overall timeout", async () => {
       const { hooks } = await loadPlugin(worktree)
       await withShortOverallTimeout(20, async () => {
         await assert.rejects(
-          hooks.tool.ocr_review.execute({}, toolContext(worktree)),
+          hooks.tool.ocr_review.execute({ runner: "codex" }, toolContext(worktree)),
           /timed out after 900 seconds/,
         )
       })
@@ -334,7 +359,7 @@ test("ocr_review enforces one output limit across stdout and stderr", async () =
     async (worktree) => {
       const { hooks } = await loadPlugin(worktree)
       await assert.rejects(
-        hooks.tool.ocr_review.execute({}, toolContext(worktree)),
+        hooks.tool.ocr_review.execute({ runner: "codex" }, toolContext(worktree)),
         /output exceeded the 10485760-byte safety limit/,
       )
     },
@@ -347,7 +372,7 @@ test("ocr_review rejects invalid JSON output", async () => {
     async (worktree) => {
       const { hooks } = await loadPlugin(worktree)
       await assert.rejects(
-        hooks.tool.ocr_review.execute({}, toolContext(worktree)),
+        hooks.tool.ocr_review.execute({ runner: "codex" }, toolContext(worktree)),
         /invalid JSON/,
       )
     },
@@ -360,7 +385,7 @@ test("ocr_review preserves valid JSON after validation", async () => {
     async (worktree) => {
       const { hooks } = await loadPlugin(worktree)
       const output = await hooks.tool.ocr_review.execute(
-        {},
+        { runner: "codex" },
         toolContext(worktree),
       )
       assert.equal(output, "{\"status\":\"success\",\"findings\":[]}")
@@ -368,24 +393,27 @@ test("ocr_review preserves valid JSON after validation", async () => {
   )
 })
 
-test("ocr_health reports both version success and LLM failure", async () => {
+test("ocr_health reports version success and runner preflight failure", async () => {
   await withFakeOcr(
     [
       "if (process.argv[2] === 'version') {",
       "  console.log('OpenCodeReview 1.2.3')",
       "} else {",
-      "  console.error('missing LLM credentials')",
+      "  console.error(JSON.stringify({argv: process.argv.slice(2)}))",
       "  process.exitCode = 7",
       "}",
     ].join("\n"),
     async (worktree) => {
       const { hooks } = await loadPlugin(worktree)
       const output = await hooks.tool.ocr_health.execute(
-        {},
+        { runner: "claude", runnerModel: "sonnet" },
         toolContext(worktree),
       )
       assert.match(output, /OpenCodeReview 1\.2\.3/)
-      assert.match(output, /LLM connection check failed: missing LLM credentials/)
+      assert.match(output, /Runner preflight failed:/)
+      assert.match(output, /--runner/)
+      assert.match(output, /claude/)
+      assert.match(output, /--runner-model/)
     },
   )
 })
@@ -397,7 +425,7 @@ test("ocr_health preserves OpenCode cancellation", async () => {
       const { hooks } = await loadPlugin(worktree)
       const controller = new AbortController()
       const execution = hooks.tool.ocr_health.execute(
-        {},
+        { runner: "codex" },
         toolContext(worktree, controller.signal),
       )
       setTimeout(() => controller.abort(), 20)

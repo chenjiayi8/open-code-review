@@ -2,6 +2,7 @@ import { spawn } from "node:child_process"
 import { type Plugin, tool } from "@opencode-ai/plugin"
 
 interface ReviewInput {
+  runner: string
   repo?: string
   commit?: string
   from?: string
@@ -9,12 +10,17 @@ interface ReviewInput {
   resume?: string
   background?: string
   exclude?: string
-  model?: string
+  runnerModel?: string
   concurrency?: number
   timeoutMinutes?: number
   maxTools?: number
   maxGitProcesses?: number
   preview?: boolean
+}
+
+interface HealthInput {
+  runner: string
+  runnerModel?: string
 }
 
 interface OcrInvocation {
@@ -60,7 +66,16 @@ function pushValue(args: string[], flag: string, value: string | number | undefi
   }
 }
 
+
+function normalizeRunner(runner: string | undefined): "codex" | "claude" {
+  if (runner === "codex" || runner === "claude") {
+    return runner
+  }
+  throw new Error("runner is required and must be 'codex' or 'claude'.")
+}
+
 function buildReviewArgs(input: ReviewInput): string[] {
+  const runner = normalizeRunner(input.runner)
   const hasRange = input.from !== undefined || input.to !== undefined
   if (hasRange && (!input.from || !input.to)) {
     throw new Error("Both 'from' and 'to' are required for a branch comparison.")
@@ -72,7 +87,7 @@ function buildReviewArgs(input: ReviewInput): string[] {
     throw new Error("'preview' and 'resume' cannot be used together.")
   }
 
-  const args = ["review", "--audience", "agent"]
+  const args = ["review", "--runner", runner, "--audience", "agent"]
   if (!input.preview) {
     args.push("--format", "json")
   }
@@ -84,7 +99,7 @@ function buildReviewArgs(input: ReviewInput): string[] {
   pushValue(args, "--resume", input.resume)
   pushValue(args, "--background", input.background)
   pushValue(args, "--exclude", input.exclude)
-  pushValue(args, "--model", input.model)
+  pushValue(args, "--runner-model", input.runnerModel)
   pushValue(args, "--concurrency", input.concurrency)
   pushValue(args, "--timeout", input.timeoutMinutes)
   pushValue(args, "--max-tools", input.maxTools)
@@ -259,7 +274,8 @@ const reviewArgs = {
   resume: optionalString("Resume a previous OCR review session by ID."),
   background: optionalString("Business or requirement context that the implementation should satisfy."),
   exclude: optionalString("Comma-separated gitignore-style exclusion patterns."),
-  model: optionalString("Override the model configured in OpenCodeReview."),
+  runner: tool.schema.string().describe("Local subscription runner to use: codex or claude."),
+  runnerModel: optionalString("Optional model hint passed to the selected local runner for this run."),
   concurrency: optionalPositiveInt("Maximum concurrent file reviews."),
   timeoutMinutes: optionalPositiveInt("Per-file OCR timeout in minutes."),
   maxTools: optionalPositiveInt("Maximum tool-call rounds per file; OCR enforces a minimum of 10."),
@@ -285,20 +301,20 @@ export const OpenCodeReviewPlugin: Plugin = async ({ client, worktree }) => {
         description: "Review code changes with OpenCodeReview",
         template:
           "Use the ocr_review tool to review the requested target. " +
-          "Treat the following text as review intent, target details, and business context: $ARGUMENTS. " +
-          "If no target is specified, review the current workspace changes. " +
+          "Treat the following text as review intent, target details, runner choice, and business context: $ARGUMENTS. " +
+          "If no target is specified, review the current workspace changes. Ask for runner codex or claude if it is not provided. " +
           "Report findings by severity with exact file and line references.",
       }
       config.command["ocr-health"] ??= {
-        description: "Check OpenCodeReview and its LLM connection",
+        description: "Check OpenCodeReview and selected runner preflight",
         template:
-          "Use the ocr_health tool and explain any configuration problem concisely.",
+          "Use the ocr_health tool with runner codex or claude and explain any runner problem concisely.",
       }
     },
     tool: {
       ocr_review: tool({
         description:
-          "Run OpenCodeReview on workspace changes, one commit, or a ref range. " +
+          "Run OpenCodeReview on workspace changes, one commit, or a ref range using a required local subscription runner. " +
           "Returns structured line-level findings as JSON. Use preview=true to inspect scope without LLM usage.",
         args: reviewArgs,
         async execute(args, context) {
@@ -313,23 +329,30 @@ export const OpenCodeReviewPlugin: Plugin = async ({ client, worktree }) => {
       }),
       ocr_health: tool({
         description:
-          "Check the installed OpenCodeReview version and verify its configured LLM connection.",
-        args: {},
-        async execute(_args, context) {
+          "Check the installed OpenCodeReview version and run read-only preflight for the selected local runner.",
+        args: {
+          runner: tool.schema.string().describe("Local subscription runner to preflight: codex or claude."),
+          runnerModel: optionalString("Optional model hint passed to the selected local runner for preflight."),
+        },
+        async execute(args, context) {
+          const input = args as HealthInput
+          const runner = normalizeRunner(input.runner)
           const cwd = context.worktree || context.directory || worktree
-          const [version, llm] = await Promise.allSettled([
+          const preflightArgs = ["review", "--runner", runner, "--audience", "agent", "--repo", cwd, "--preview"]
+          pushValue(preflightArgs, "--runner-model", input.runnerModel)
+          const [version, preflight] = await Promise.allSettled([
             runOcr(["version"], {
               cwd,
               timeoutMs: 30_000,
               signal: context.abort,
             }),
-            runOcr(["llm", "test"], {
+            runOcr(preflightArgs, {
               cwd,
               timeoutMs: 60_000,
               signal: context.abort,
             }),
           ])
-          const rejected = [version, llm].find(
+          const rejected = [version, preflight].find(
             (result): result is PromiseRejectedResult => result.status === "rejected",
           )
           if (context.abort.aborted && rejected) {
@@ -342,10 +365,10 @@ export const OpenCodeReviewPlugin: Plugin = async ({ client, worktree }) => {
           } else {
             parts.push(`Version check failed: ${version.reason?.message ?? "unknown error"}`)
           }
-          if (llm.status === "fulfilled") {
-            parts.push(llm.value.stdout, llm.value.stderr)
+          if (preflight.status === "fulfilled") {
+            parts.push(preflight.value.stdout, preflight.value.stderr)
           } else {
-            parts.push(`LLM connection check failed: ${llm.reason?.message ?? "unknown error"}`)
+            parts.push(`Runner preflight failed: ${preflight.reason?.message ?? "unknown error"}`)
           }
           return parts.filter(Boolean).join("\n")
         },

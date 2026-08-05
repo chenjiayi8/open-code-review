@@ -11,8 +11,9 @@ description: >
 license: Apache-2.0
 compatibility: >
   Requires the `ocr` CLI installed (via `npm install -g
-  @alibaba-group/open-code-review` or GitHub release binary). Requires a
-  configured LLM (Anthropic or OpenAI-compatible) before first run.
+  @alibaba-group/open-code-review` or GitHub release binary). Requires an
+  authenticated local subscription runner (`codex` or `claude`) before first
+  non-preview run. OCR does not configure or use provider API keys.
 metadata:
   author: alibaba
   homepage: https://github.com/alibaba/open-code-review
@@ -20,11 +21,6 @@ metadata:
 ---
 
 # Open Code Review
-
-This Codex plugin skill intentionally mirrors the canonical skill at
-`skills/open-code-review/SKILL.md`. Keep both files synchronized when updating
-OCR agent instructions; a symlink is avoided because plugin installs may only
-materialize the plugin subtree.
 
 A skill for invoking [open-code-review](https://github.com/alibaba/open-code-review) (`ocr`) — an open-source AI code review CLI that reads Git diffs and generates structured, line-level review comments.
 
@@ -36,8 +32,11 @@ Before starting a review, verify the environment:
 # 1. Check the CLI is installed
 which ocr || echo "NOT INSTALLED"
 
-# 2. Verify LLM connectivity
-ocr llm test
+# 2. Authenticate one local subscription runner
+codex login                 # or: claude auth login --claudeai
+
+# 3. Optional read-only/preflight check
+ocr review --preview
 ```
 
 If `ocr` is not installed, install it first:
@@ -46,27 +45,9 @@ If `ocr` is not installed, install it first:
 npm install -g @alibaba-group/open-code-review
 ```
 
-If `ocr llm test` fails, the user must configure an LLM. Guide them with one of these options:
+OCR delegates LLM work to the selected local runner. The installed Codex or Claude CLI owns subscription authentication; OCR does not configure provider endpoints, models, or API keys. Stop and ask the user to authenticate the chosen runner if preflight reports that it is missing or logged out.
 
-**Option A — Environment variables (highest priority, recommended for CI):**
-
-```bash
-export OCR_LLM_URL=https://api.anthropic.com/v1/messages
-export OCR_LLM_TOKEN=<api-key>
-export OCR_LLM_MODEL=claude-opus-4-6
-export OCR_USE_ANTHROPIC=true
-```
-
-**Option B — Persistent config:**
-
-```bash
-ocr config set llm.url https://api.anthropic.com/v1/messages
-ocr config set llm.auth_token <api-key>
-ocr config set llm.model claude-opus-4-6
-ocr config set llm.use_anthropic true
-```
-
-Stop here and ask the user to provide credentials — never invent or hardcode API keys.
+`--runner` is required for `ocr review` and `ocr scan` unless running a read-only/preflight command such as `--preview`. `--runner-model <name>` is optional and applies only to the current invocation. CI authentication is separate from local subscription login; CI jobs must authenticate the selected runner inside CI.
 
 ## Workflow
 
@@ -79,13 +60,13 @@ Analyze the review target (commits, branch, or changes) to extract concise busin
 Run the OCR command with appropriate flags. **Always pass business context via `--background`** when available:
 
 ```bash
-ocr review --audience agent --background "business context here" [user-args]
+ocr review --runner codex --audience agent --background "business context here" [user-args]
 ```
 
 **Argument handling:**
 
 - **Background context** (RECOMMENDED): use `--background "context"` or `-b "context"` to provide business context for better review quality
-- **Default** (no user arguments): reviews staged, unstaged, and untracked changes (workspace mode)
+- **Runner** (REQUIRED): pass `--runner codex` or `--runner claude` for every non-preview review/scan
 - **Specific commit**: use `--commit` or `-c` to review a single commit against its parent
 - **Branch comparison**: use `--from <ref>` and `--to <ref>` to review diff between two refs
 - **Timeout**: default timeout is 10 minutes per file; adjust with `--timeout <minutes>`
@@ -97,9 +78,9 @@ ocr review --audience agent --background "business context here" [user-args]
 
 | User says | Command to run |
 |-----------|---------------|
-| "review my changes" / "review the working copy" | `ocr review --audience agent -b "context"` |
-| "review this PR" / "review feature branch" | `ocr review --audience agent -b "context" --from main --to <branch>` |
-| "review commit abc123" | `ocr review --audience agent -b "context" --commit abc123` |
+| "review my changes" / "review the working copy" | `ocr review --runner codex --audience agent -b "context"` |
+| "review this PR" / "review feature branch" | `ocr review --runner codex --audience agent -b "context" --from main --to <branch>` |
+| "review commit abc123" | `ocr review --runner codex --audience agent -b "context" --commit abc123` |
 | "what would be reviewed?" (dry-run) | `ocr review --preview` |
 
 **Output mode:**
@@ -214,9 +195,9 @@ ocr rules check src/main/java/com/example/Foo.java
 
 ## Gotchas
 
-- **LLM must be configured first** — `ocr review` will fail loudly if no LLM is reachable. Always run `ocr llm test` before the first review.
-- **Working directory matters** — `ocr review` operates on the Git repo at the current directory. Use `--repo /path/to/repo` to run from elsewhere.
-- **Untracked files are reviewed in workspace mode** — running bare `ocr review` includes staged, unstaged, *and* untracked changes. Stage selectively if you want narrower scope.
+- **Runner authentication is required** — non-preview `ocr review` and `ocr scan` fail loudly if `--runner` is missing or the selected local CLI is not authenticated. Run `codex login` or `claude auth login --claudeai` before the first runner-backed review.
+- **Working directory matters** — `ocr review --runner codex` operates on the Git repo at the current directory. Use `--repo /path/to/repo` to run from elsewhere.
+- **Untracked files are reviewed in workspace mode** — `ocr review --runner codex` includes staged, unstaged, *and* untracked changes. Stage selectively if you want narrower scope.
 - **Large diffs may hit token limits** — files with very large diffs may be truncated. The default `MAX_TOKENS` is 58888 per request.
 - **Plan phase triggers at 50 lines** — diffs exceeding 50 changed lines run an extra risk-analysis phase before main review. This adds latency but improves quality.
 - **Don't pass `--audience human`** — it streams progress UI that pollutes output. Always use `--audience agent`.

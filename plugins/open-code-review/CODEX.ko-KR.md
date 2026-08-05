@@ -9,7 +9,7 @@
 ```text
 Codex
   └─ Open Code Review plugin
-      └─ ocr review --audience agent
+      └─ ocr review --runner codex --audience agent
 ```
 
 ## 사전 준비
@@ -27,13 +27,13 @@ command -v ocr
 ocr version
 ```
 
-OCR 자체의 LLM 설정도 필요합니다.
+OCR은 로컬 구독 runner를 사용합니다. Codex 또는 Claude CLI에 먼저 로그인하세요.
 
 ```bash
-ocr llm test
+codex login                 # or: claude auth login --claudeai
 ```
 
-이 명령이 실패하면 Codex 플러그인 설치와 별개로 OCR의 LLM 설정을 먼저 완료해야 합니다.
+비 preview 리뷰를 실행할 때는 `--runner codex` 또는 `--runner claude`가 필요합니다.
 
 ## Codex에서 설치
 
@@ -78,19 +78,19 @@ codex
 현재 workspace 변경사항 검토:
 
 ```bash
-ocr review --audience agent
+ocr review --runner codex --audience agent
 ```
 
 특정 commit 검토:
 
 ```bash
-ocr review --audience agent --commit <sha>
+ocr review --runner codex --audience agent --commit <sha>
 ```
 
 브랜치 비교:
 
 ```bash
-ocr review --audience agent --from <base-ref> --to <head-ref>
+ocr review --runner codex --audience agent --from <base-ref> --to <head-ref>
 ```
 
 미리보기:
@@ -101,8 +101,8 @@ ocr review --preview
 
 ## 주의사항
 
-- 이 플러그인은 OpenAI Responses API endpoint를 설정하지 않습니다.
-- 이 플러그인은 `OPENAI_API_KEY`나 `gpt-5.1-codex-max` 설정을 요구하지 않습니다.
-- OCR 자체는 별도의 LLM 설정이 필요합니다.
+- 이 플러그인은 OCR provider endpoint를 설정하지 않습니다.
+- 이 플러그인은 OCR API key나 provider 모델 설정을 요구하지 않습니다.
+- OCR 자체는 provider/API key 설정을 사용하지 않으며 로컬 runner 인증을 사용합니다.
 - 파일 수정은 사용자가 명시적으로 요청한 경우에만 수행합니다.
 - commit 생성은 사용자가 명시적으로 요청한 경우에만 수행합니다.

@@ -90,10 +90,10 @@ curl -o .github/workflows/ocr-review.yml \
 
 | Секрет | Обязательно | Описание |
 |---|---|---|
-| `OCR_LLM_URL` | Да | Эндпоинт LLM API (например, `https://api.openai.com/v1/chat/completions`). |
-| `OCR_LLM_AUTH_TOKEN` | Да | Токен аутентификации LLM API. Этот секрет CI передаётся в `ocr config set llm.auth_token`. (Прямая переменная окружения OCR называется `OCR_LLM_TOKEN`, а не `OCR_LLM_AUTH_TOKEN`.) |
-| `OCR_LLM_MODEL` | Нет | Имя модели. Значения по умолчанию нет, его нужно задать явно. |
-| `OCR_LLM_USE_ANTHROPIC` | Нет | Установите `true` для моделей Anthropic Claude. |
+| `RUNNER_AUTH` | Да | Эндпоинт LLM API (например, `https://api.openai.com/v1/chat/completions`). |
+| `RUNNER_AUTH_TOKEN` | Да | Токен аутентификации LLM API. Этот секрет CI передаётся в `authenticate the selected runner`. (Прямая переменная окружения OCR называется `RUNNER_AUTH`, а не `RUNNER_AUTH_TOKEN`.) |
+| `RUNNER_MODEL` | Нет | Имя модели. Значения по умолчанию нет, его нужно задать явно. |
+| `RUNNER_AUTH_MODE` | Нет | Установите `true` для моделей Anthropic Claude. |
 
 `GITHUB_TOKEN` предоставляется автоматически; workflow объявляет разрешение
 `pull-requests: write`, чтобы публиковать комментарии ревью.
@@ -262,7 +262,7 @@ if: |
 | Симптом | Причина / исправление |
 |---|---|
 | `Cannot find merge-base` | На этапе checkout использовалось неглубокое клонирование, но для ревью диапазона нужна полная история. Исходный workflow задаёт `fetch-depth: 0` для `actions/checkout`; сохраните эту настройку при редактировании файла. |
-| `Failed to parse OCR output` | `OCR_LLM_URL` или `OCR_LLM_AUTH_TOKEN` отсутствует либо задан неверно. Повторно проверьте значения в *Settings → Secrets and variables → Actions*. |
+| `Failed to parse OCR output` | `RUNNER_AUTH` или `RUNNER_AUTH_TOKEN` отсутствует либо задан неверно. Повторно проверьте значения в *Settings → Secrets and variables → Actions*. |
 | Комментарии ревью попадают не на те строки | Обычно это означает, что diff изменился между началом ревью и публикацией комментариев. В этом случае скрипт публикации возвращается к обычному комментарию задачи, дополнительных действий не требуется. |
 
 > **Примечание.** Переменная окружения `OCR_DEBUG` **пока не реализована** в
@@ -312,9 +312,9 @@ include:
 
 | Переменная | Обязательно | Маскирование | Описание |
 |---|---|---|---|
-| `OCR_LLM_URL` | Да | Нет | URL эндпоинта LLM API. |
-| `OCR_LLM_AUTH_TOKEN` | Да | Да | Токен аутентификации API. Эта переменная CI передаётся в `ocr config set llm.auth_token`. (Прямая переменная окружения OCR называется `OCR_LLM_TOKEN`, а не `OCR_LLM_AUTH_TOKEN`.) |
-| `OCR_LLM_MODEL` | Нет | Нет | Имя модели. Значения по умолчанию нет, его нужно задать явно. |
+| `RUNNER_AUTH` | Да | Нет | URL эндпоинта LLM API. |
+| `RUNNER_AUTH_TOKEN` | Да | Да | Токен аутентификации API. Эта переменная CI передаётся в `authenticate the selected runner`. (Прямая переменная окружения OCR называется `RUNNER_AUTH`, а не `RUNNER_AUTH_TOKEN`.) |
+| `RUNNER_MODEL` | Нет | Нет | Имя модели. Значения по умолчанию нет, его нужно задать явно. |
 | `GITLAB_API_TOKEN` | Нет | Да | Токен доступа проекта / пользователя / группы с областью `api`. Необязателен: если он отсутствует, в качестве резервного варианта используется встроенный `CI_JOB_TOKEN` (например, для MR из форков). Для надёжности рекомендуется отдельный `GITLAB_API_TOKEN`. |
 
 > GitLab отклоняет переменные короче 8 символов, поэтому в конвейере
@@ -450,7 +450,7 @@ if any("OpenCodeReview" in n.get("body", "") for n in notes):
 |---|---|
 | `Cannot find merge-base` | Runner использовал неглубокое клонирование. Исходный конвейер задаёт `GIT_DEPTH: 0`, чтобы принудительно получить полную копию; сохраните эту настройку при редактировании файла. |
 | `API error 403` при публикации | У `GITLAB_API_TOKEN` нет области `api`, токен не принадлежит участнику проекта или, для локального GitLab, выпущен другим экземпляром. Перевыпустите токен с областью `api` и снова добавьте его в *Settings → CI/CD → Variables*. |
-| `Failed to parse OCR output` | Неверно задан `OCR_LLM_URL` или `OCR_LLM_AUTH_TOKEN`. Повторно проверьте значения в *Settings → CI/CD → Variables*. |
+| `Failed to parse OCR output` | Неверно задан `RUNNER_AUTH` или `RUNNER_AUTH_TOKEN`. Повторно проверьте значения в *Settings → CI/CD → Variables*. |
 | Встроенные комментарии попадают не на те строки | GitLab требует точного совпадения SHA для встроенных обсуждений; скрипт публикации получает метаданные `versions`, чтобы использовать правильные `base_sha` / `start_sha` / `head_sha`. Если замечание всё равно не удаётся привязать, оно публикуется как обычная заметка MR. |
 
 Конвейер записывает исходный JSON ревью в `/tmp/ocr-result.json`, а stderr — в

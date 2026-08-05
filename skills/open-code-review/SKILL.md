@@ -195,9 +195,9 @@ ocr rules check src/main/java/com/example/Foo.java
 
 ## Gotchas
 
-- **LLM must be configured first** — `ocr review` will fail loudly if no LLM is reachable. Always run `ocr llm test` before the first review.
-- **Working directory matters** — `ocr review` operates on the Git repo at the current directory. Use `--repo /path/to/repo` to run from elsewhere.
-- **Untracked files are reviewed in workspace mode** — running bare `ocr review` includes staged, unstaged, *and* untracked changes. Stage selectively if you want narrower scope.
+- **Runner authentication is required** — non-preview `ocr review` and `ocr scan` fail loudly if `--runner` is missing or the selected local CLI is not authenticated. Run `codex login` or `claude auth login --claudeai` before the first runner-backed review.
+- **Working directory matters** — `ocr review --runner codex` operates on the Git repo at the current directory. Use `--repo /path/to/repo` to run from elsewhere.
+- **Untracked files are reviewed in workspace mode** — `ocr review --runner codex` includes staged, unstaged, *and* untracked changes. Stage selectively if you want narrower scope.
 - **Large diffs may hit token limits** — files with very large diffs may be truncated. The default `MAX_TOKENS` is 58888 per request.
 - **Plan phase triggers at 50 lines** — diffs exceeding 50 changed lines run an extra risk-analysis phase before main review. This adds latency but improves quality.
 - **Don't pass `--audience human`** — it streams progress UI that pollutes output. Always use `--audience agent`.

@@ -10,10 +10,10 @@ sidebar:
 
 ## 設定と起動
 
-### `no valid LLM endpoint configured`
+### `runner subscription authentication required`
 
 ```
-no valid LLM endpoint configured; one of OCR_LLM_URL/OCR_LLM_TOKEN/OCR_LLM_MODEL,
+runner subscription authentication required; run codex login or claude auth login --claudeai,
 ~/.opencodereview/config.json, or ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN/
 ANTHROPIC_MODEL must be set
 ```
@@ -24,20 +24,20 @@ OCR はエンドポイント解決チェーン全体（[設定](../configuration
 
 - `ocr config set llm.url …` / `llm.auth_token …` / `llm.model …` を実行して
   `~/.opencodereview/config.json` を埋める、**または**
-- `OCR_LLM_URL` / `OCR_LLM_TOKEN` / `OCR_LLM_MODEL` をエクスポートする、**または**
+- `RUNNER_AUTH` / `RUNNER_AUTH` / `RUNNER_MODEL` をエクスポートする、**または**
 - すでに Claude Code を使っている場合は、`ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` /
   `ANTHROPIC_MODEL` をエクスポートする。
 
-その後 `ocr llm test` で接続性を検証してからレビューを再試行してください。
+その後 `ocr review --preview` で接続性を検証してからレビューを再試行してください。
 
-### `ocr llm test` が誤ったソースを表示する
+### `ocr review --preview` が誤ったソースを表示する
 
 OCR は**最後**ではなく**最初**の完全な三つ組を採用します。したがって、設定ファイルに
 すでに 3 つの llm.* key がすべて揃っていると、環境変数は無視されます。環境変数を有効にするには、
 設定 key を削除する（ファイルを削除するか手動で unset する）か、`ocr config set` で新しい値に
 切り替えてください。
 
-### `ocr llm test` が 401 / 403 を返す
+### `ocr review --preview` が 401 / 403 を返す
 
 token に scope が不足している、期限切れ、あるいはプロバイダーが一致していません。Anthropic と
 OpenAI は異なる auth header と URL フォーマットを使います——`llm.use_anthropic` が指し先の URL と

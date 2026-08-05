@@ -50,12 +50,12 @@ cp -R /path/to/open-code-review/skills/open-code-review ~/.claude/skills/
 SKILL.md 是一个 prompt：当调用方 agent 加载它时，由 agent 自身执行步骤。一次
 完整的 `/open-code-review`（或等价）请求流程如下展开：
 
-1. **前置检查。** 运行 `which ocr` 确认 CLI 在 `PATH` 上，再 `ocr llm test`
+1. **前置检查。** 运行 `which ocr` 确认 CLI 在 `PATH` 上，再 `ocr review --preview`
    确认 LLM 可达。
 2. **CLI 缺失则自动安装。** 若 `which ocr` 报告 "NOT INSTALLED"，agent 运行
    `npm install -g @alibaba-group/open-code-review` 并继续。不提示用户——这被视为
    常规设置步骤。
-3. **无 LLM 配置则停下询问。** 若 `ocr llm test` 失败，agent *不会* 编造凭证。
+3. **无 LLM 配置则停下询问。** 若 `ocr review --preview` 失败，agent *不会* 编造凭证。
    它向用户展示两种受支持的方式（环境变量或 `ocr config set …`）并等待用户提供
    API key。
 4. **提取业务上下文。** 检查评审目标（commit、分支、工作副本）并生成一个简短的

@@ -150,7 +150,7 @@ ocr scan --runner claude --path internal/agent    # 디렉터리 또는 특정 �
 ocr scan --runner claude --resume <session-id>   # 중단된 전체 파일 스캔 재개
 
 # 위임 모드 — AI 코딩 에이전트가 직접 리뷰 수행
-# OCR은 파일 선택과 규칙 해석만 담당; LLM 설정 불필요
+# OCR은 파일 선택과 규칙 해석만 담당; runner 설정 불필요
 ocr delegate preview
 ocr delegate rule src/main.go src/handler.go
 ```

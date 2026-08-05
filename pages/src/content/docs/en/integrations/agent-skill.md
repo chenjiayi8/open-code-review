@@ -56,12 +56,12 @@ itself executes the steps. End-to-end, a single `/open-code-review`
 (or equivalent) request unfolds like this:
 
 1. **Prerequisite check.** Run `which ocr` to confirm the CLI is on
-   `PATH`, then `ocr llm test` to confirm an LLM is reachable.
+   `PATH`, then `ocr review --preview` to confirm an runner preflight is available.
 2. **Auto-install the CLI if missing.** If `which ocr` reports
    "NOT INSTALLED", the agent runs
    `npm install -g @alibaba-group/open-code-review` and continues. No
    user prompt — this is treated as a routine setup step.
-3. **Stop and ask if no LLM is configured.** If `ocr llm test` fails,
+3. **Stop and ask if no runner is authenticated.** If `ocr review --preview` fails,
    the agent will *not* invent credentials. It shows the user the two
    supported options (environment variables or `ocr config set …`) and
    waits for the user to provide an API key.

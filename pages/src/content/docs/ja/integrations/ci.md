@@ -61,10 +61,10 @@ curl -o .github/workflows/ocr-review.yml \
 
 | Secret | 必須 | 説明 |
 |---|---|---|
-| `OCR_LLM_URL` | はい | LLM API エンドポイント（例：`https://api.openai.com/v1/chat/completions`）。 |
-| `OCR_LLM_AUTH_TOKEN` | はい | LLM API の認証 token。この CI secret は `ocr config set llm.auth_token` に渡されます。（OCR の直接の環境変数は `OCR_LLM_TOKEN` であり、`OCR_LLM_AUTH_TOKEN` ではありません。） |
-| `OCR_LLM_MODEL` | いいえ | モデル名。デフォルトはありません——明示的に設定する必要があります。 |
-| `OCR_LLM_USE_ANTHROPIC` | いいえ | Anthropic Claude モデルの場合は `true` に設定します。 |
+| `RUNNER_AUTH` | はい | LLM API エンドポイント（例：`https://api.openai.com/v1/chat/completions`）。 |
+| `RUNNER_AUTH_TOKEN` | はい | LLM API の認証 token。この CI secret は `authenticate the selected runner` に渡されます。（OCR の直接の環境変数は `RUNNER_AUTH` であり、`RUNNER_AUTH_TOKEN` ではありません。） |
+| `RUNNER_MODEL` | いいえ | モデル名。デフォルトはありません——明示的に設定する必要があります。 |
+| `RUNNER_AUTH_MODE` | いいえ | Anthropic Claude モデルの場合は `true` に設定します。 |
 
 `GITHUB_TOKEN` は自動的に提供されます。ワークフローはレビューコメントを貼り付けるために `pull-requests: write` を宣言しています。
 
@@ -209,7 +209,7 @@ if: |
 | 症状 | 原因 / 修正 |
 |---|---|
 | `Cannot find merge-base` | checkout 手順が浅いクローンを使っていますが、区間モードのレビューには完全な履歴が必要です。上流のワークフローは `actions/checkout` に `fetch-depth: 0` を設定しています——ファイルを編集する際はこの設定を保持してください。 |
-| `Failed to parse OCR output` | `OCR_LLM_URL` または `OCR_LLM_AUTH_TOKEN` が欠落しているか誤っています。*Settings → Secrets and variables → Actions* で値を再確認してください。 |
+| `Failed to parse OCR output` | `RUNNER_AUTH` または `RUNNER_AUTH_TOKEN` が欠落しているか誤っています。*Settings → Secrets and variables → Actions* で値を再確認してください。 |
 | レビューコメントが誤った行に付く | 通常、レビュー開始からコメント貼り付けの間に diff がずれたことを意味します。貼り付けスクリプトはこの場合、通常の issue コメントにフォールバックします——対処は不要です。 |
 
 > **注意。** `OCR_DEBUG` 環境変数は現在 OCR で**未実装**です——`OCR_DEBUG: "1"` を設定しても効果はありません。将来の対応に備えてここに記載しています。現時点で詳細な出力が必要な場合は、ワークフローが `/tmp/ocr-result.json` と `/tmp/ocr-stderr.log` に書き込む生のレビュー JSON と stderr を確認するか（下記のトラブルシューティングを参照）、ローカルで `ocr review` を実行してください。
@@ -250,9 +250,9 @@ include:
 
 | 変数 | 必須 | マスク | 説明 |
 |---|---|---|---|
-| `OCR_LLM_URL` | はい | いいえ | LLM API エンドポイント URL。 |
-| `OCR_LLM_AUTH_TOKEN` | はい | はい | API 認証 token。この CI 変数は `ocr config set llm.auth_token` に渡されます。（OCR の直接の環境変数は `OCR_LLM_TOKEN` であり、`OCR_LLM_AUTH_TOKEN` ではありません。） |
-| `OCR_LLM_MODEL` | いいえ | いいえ | モデル名。デフォルトはありません——明示的に設定する必要があります。 |
+| `RUNNER_AUTH` | はい | いいえ | LLM API エンドポイント URL。 |
+| `RUNNER_AUTH_TOKEN` | はい | はい | API 認証 token。この CI 変数は `authenticate the selected runner` に渡されます。（OCR の直接の環境変数は `RUNNER_AUTH` であり、`RUNNER_AUTH_TOKEN` ではありません。） |
+| `RUNNER_MODEL` | いいえ | いいえ | モデル名。デフォルトはありません——明示的に設定する必要があります。 |
 | `GITLAB_API_TOKEN` | いいえ | はい | `api` scope を持つ project / personal / group access token。オプションです——欠落時は組み込みの `CI_JOB_TOKEN` にフォールバックします（fork MR など）。信頼性のためには専用の `GITLAB_API_TOKEN` を推奨します。 |
 
 > GitLab は 8 文字未満の変数を拒否するため、パイプライン内で `llm.use_anthropic` は
@@ -360,7 +360,7 @@ if any("OpenCodeReview" in n.get("body", "") for n in notes):
 |---|---|
 | `Cannot find merge-base` | runner が浅いクローンを使っています。上流のパイプラインは `GIT_DEPTH: 0` を設定して完全なクローンを強制します——ファイルを編集する際はこの設定を保持してください。 |
 | 投稿時の `API error 403` | `GITLAB_API_TOKEN` に `api` scope が無い、プロジェクトのメンバーでない、または——セルフホストの場合——別のインスタンスによって発行されています。`api` scope で再発行し、*Settings → CI/CD → Variables* で再登録してください。 |
-| `Failed to parse OCR output` | `OCR_LLM_URL` または `OCR_LLM_AUTH_TOKEN` が誤っています。*Settings → CI/CD → Variables* で値を再確認してください。 |
+| `Failed to parse OCR output` | `RUNNER_AUTH` または `RUNNER_AUTH_TOKEN` が誤っています。*Settings → CI/CD → Variables* で値を再確認してください。 |
 | インラインコメントが誤った行に付く | GitLab のインラインディスカッションは正確な SHA の一致を要求します。貼り付けスクリプトは `versions` メタデータを取得して正しい `base_sha` / `start_sha` / `head_sha` を得ます。それでも発見をアンカーできない場合は、通常の MR note にフォールバックします。 |
 
 パイプラインは生のレビュー JSON を `/tmp/ocr-result.json` に、stderr を
