@@ -4,7 +4,7 @@ sidebar:
   order: 5
 ---
 
-OCR no longer stores provider endpoints, models, or API keys. Review execution is subscription-backed: OCR shells out to an installed local runner and that runner owns authentication.
+OCR no longer stores runner credentials or provider connection settings. Review execution is subscription-backed: OCR shells out to an installed local runner and that runner owns authentication.
 
 ## Local subscription runners
 
@@ -24,4 +24,4 @@ Read-only/preflight commands such as `ocr review --preview` inspect files and ru
 
 ## CI authentication
 
-Local subscription login does not automatically transfer to CI. CI workflows must install OCR and authenticate the selected Codex or Claude runner inside the job. Do not add provider endpoint or API-key setup commands to OCR; keep CI runner authentication in the CI platform's supported mechanism.
+Local subscription login does not automatically transfer to CI. CI workflows must install OCR and authenticate the selected Codex or Claude runner inside the job. Do not add OCR-owned credential setup commands; keep CI runner authentication in the CI platform's supported mechanism.

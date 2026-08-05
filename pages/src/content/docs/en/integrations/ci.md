@@ -21,14 +21,12 @@ implementations of it:
 2. **Install `ocr`** in the runner, typically
    `npm install -g @alibaba-group/open-code-review`. The runner is
    ephemeral, so this happens on every run.
-3. **Configure the LLM** from CI secrets via `ocr config set`
-   (endpoint, token, model). There is no persisted
-   `~/.opencodereview` to fall back on.
+3. **Authenticate the selected local runner** inside the CI job. Install Codex or Claude, then use your CI platform's supported non-interactive authentication mechanism (for example an approved secret, OIDC exchange, or device-flow/bootstrap step). OCR itself does not consume model-service credentials directly.
 4. **Run the review in range mode** with machine-readable output, so
    stdout is a clean JSON envelope:
 
    ```bash
-   ocr review \
+   ocr review --runner codex \
      --from "origin/<base-branch>" \
      --to "origin/<head-branch>" \
      --format json \
@@ -46,9 +44,7 @@ implementations of it:
    posting step also falls back to a plain summary comment if the
    inline-batch API rejects the request.
 
-Two kinds of credentials are always in play: the **LLM credentials**
-OCR uses to generate findings, and a **PR/MR write token** the
-posting step uses to comment back. The GitHub recipe gets the latter
+Two kinds of credentials are always in play: the selected **runner authentication** used by Codex or Claude to generate findings, and a **PR/MR write token** the posting step uses to comment back. The GitHub recipe gets the latter
 for free via `GITHUB_TOKEN`; GitLab recommends an explicit
 `GITLAB_API_TOKEN`, but the built-in `CI_JOB_TOKEN` is used as a
 fallback for fork MRs (it can post discussions via `/discussions`) —
@@ -68,7 +64,7 @@ The upstream workflow lives at
   secrets are available even for PRs opened from forks; OCR only reads
   the diff and does not execute code from the PR.)
 - Installs OCR via `npm install -g @alibaba-group/open-code-review`,
-  writes config with `ocr config set`, then runs the core command in
+  authenticates the selected Codex or Claude runner, then runs the core command in
   branch-range mode.
 - Parses the JSON envelope and posts each finding as an inline review
   comment via the GitHub Pull Request Review API. Comments without
@@ -92,20 +88,10 @@ Set under **Settings → Secrets and variables → Actions**:
 
 | Secret | Required | Description |
 |---|---|---|
-| `RUNNER_AUTH` | Yes | LLM API endpoint (e.g. `https://api.openai.com/v1/chat/completions`). |
-| `RUNNER_AUTH_TOKEN` | Yes | Authentication token for the LLM API. This CI secret is passed to `authenticate the selected runner`. (OCR's direct env var is `RUNNER_AUTH`, not `RUNNER_AUTH_TOKEN`.) |
-| `RUNNER_MODEL` | No | Model name. No default — must be set explicitly. |
-| `RUNNER_AUTH_MODE` | No | Set to `true` for Anthropic Claude models. |
+| `CODEX_AUTH` or `CLAUDE_AUTH` | Yes | CI secret(s) used by your runner login step. The exact format depends on the Codex/Claude CLI and your CI platform. |
+| `GITHUB_TOKEN` | Auto | GitHub-provided token used to post PR review comments. |
 
-`GITHUB_TOKEN` is auto-provided; the workflow declares
-`pull-requests: write` so it can post review comments.
-
-> The workflow also runs
-> `ocr config set llm.extra_body '{"thinking": {"type": "disabled"}}'`
-> at startup, which turns off thinking-mode requests for
-> compatibility across LLM providers that don't support that field.
-> Remove the line if your provider needs thinking-mode left on.
-
+Add a workflow step before OCR that authenticates the selected runner, then invoke OCR with `--runner codex` or `--runner claude`. Do not create OCR-owned model-service credential variables.
 ### Customization
 
 All of the following are edits to the workflow file you just copied
@@ -125,7 +111,7 @@ semantic convention like `feat(auth): add OAuth2 support`):
     BASE_REF: ${{ github.base_ref }}
     HEAD_REF: ${{ github.head_ref }}
   run: |
-    ocr review \
+    ocr review --runner codex \
       --background "$PR_TITLE" \
       --from "origin/$BASE_REF" \
       --to "origin/$HEAD_REF" \
@@ -148,7 +134,7 @@ Pass a project-specific rule file with `--rule`:
     BASE_REF: ${{ github.base_ref }}
     HEAD_REF: ${{ github.head_ref }}
   run: |
-    ocr review --rule ./my-rules.json \
+    ocr review --runner codex --rule ./my-rules.json \
       --from "origin/$BASE_REF" \
       --to "origin/$HEAD_REF"
 ```
@@ -158,7 +144,7 @@ See [Review Rules](../../review-rules/) for the schema.
 #### Concurrency
 
 The default is 8 parallel per-file sub-agents. Lower it on large PRs
-to stay under your LLM provider's rate limits:
+to stay under your selected runner subscription's rate limits:
 
 ```yaml
 - name: Run OCR review
@@ -166,7 +152,7 @@ to stay under your LLM provider's rate limits:
     BASE_REF: ${{ github.base_ref }}
     HEAD_REF: ${{ github.head_ref }}
   run: |
-    ocr review --concurrency 5 \
+    ocr review --runner codex --concurrency 5 \
       --from "origin/$BASE_REF" \
       --to "origin/$HEAD_REF"
 ```
@@ -263,15 +249,8 @@ Reviews will now appear as posted by your app's name instead of
 | Symptom | Cause / Fix |
 |---|---|
 | `Cannot find merge-base` | The checkout step used a shallow clone, but range-mode review needs full history. The upstream workflow sets `fetch-depth: 0` on `actions/checkout` — preserve that setting if you edit the file. |
-| `Failed to parse OCR output` | `RUNNER_AUTH` or `RUNNER_AUTH_TOKEN` is missing or wrong. Re-check the values under *Settings → Secrets and variables → Actions*. |
+| `Failed to parse OCR output` | The selected runner is not authenticated in CI. Check the Codex/Claude login step and rerun the job. |
 | Review comments land on the wrong lines | Usually means the diff shifted between the moment the review started and when comments were posted. The posting script falls back to a plain issue comment in that case — no action needed. |
-
-> **Note.** The `OCR_DEBUG` env var is **not currently implemented**
-> in OCR — setting `OCR_DEBUG: "1"` has no effect. It's documented
-> here in case it is wired up later. For verbose output today, inspect
-> the raw review JSON and stderr that the workflow writes to
-> `/tmp/ocr-result.json` and `/tmp/ocr-stderr.log` (see troubleshooting
-> below), or run `ocr review` locally.
 
 ## GitLab CI
 
@@ -280,16 +259,9 @@ The upstream pipeline lives at
 
 ### What it does
 
-- Triggers on `merge_requests` events (all MR events — creation,
-  updates, reopen).
-- Runs in a `node:20` image, installs OCR, configures it via
-  `ocr config set`, then runs the core command in MR diff mode.
-- Parses the JSON envelope with an inlined Python script and posts
-  each finding as a GitLab Discussion (inline on the diff), using
-  the MR's `versions` endpoint to compute correct `base_sha` /
-  `start_sha` / `head_sha` for accurate positioning. Falls back to
-  regular MR notes for any comment that can't be posted inline, and
-  closes with a summary note.
+- Triggers on `merge_requests` events.
+- Runs in a Node image, installs OCR, authenticates the selected Codex or Claude runner, then runs the core command in MR diff mode with `--runner`.
+- Parses the JSON envelope and posts each finding as a GitLab Discussion, falling back to regular MR notes when inline positioning is unavailable.
 
 ### Install
 
@@ -300,8 +272,7 @@ curl -o .gitlab-ci.yml \
   https://raw.githubusercontent.com/alibaba/open-code-review/main/examples/gitlab_ci/.gitlab-ci.yml
 ```
 
-If you already have a `.gitlab-ci.yml` and want to keep it, vendor
-the recipe to a different path and pull it in with `include:`:
+If you already have a `.gitlab-ci.yml`, vendor the recipe to a different path and include it:
 
 ```yaml
 include:
@@ -314,20 +285,10 @@ Set under **Settings → CI/CD → Variables**:
 
 | Variable | Required | Masked | Description |
 |---|---|---|---|
-| `RUNNER_AUTH` | Yes | No | LLM API endpoint URL. |
-| `RUNNER_AUTH_TOKEN` | Yes | Yes | API authentication token. This CI variable is passed to `authenticate the selected runner`. (OCR's direct env var is `RUNNER_AUTH`, not `RUNNER_AUTH_TOKEN`.) |
-| `RUNNER_MODEL` | No | No | Model name. No default — must be set explicitly. |
-| `GITLAB_API_TOKEN` | No | Yes | Project / personal / group access token with `api` scope. Optional — the built-in `CI_JOB_TOKEN` is used as a fallback when this is absent (e.g. for fork MRs). A dedicated `GITLAB_API_TOKEN` is recommended for reliability. |
+| `CODEX_AUTH` or `CLAUDE_AUTH` | Yes | Yes | CI secret(s) used by your runner login step. The exact format depends on the Codex/Claude CLI and your CI platform. |
+| `GITLAB_API_TOKEN` | No | Yes | Project / personal / group access token with `api` scope for posting comments. Optional — the built-in `CI_JOB_TOKEN` is used as a fallback for fork MRs. |
 
-> GitLab rejects variables shorter than 8 characters, so
-> `llm.use_anthropic` is hardcoded to `false` in the pipeline. To use
-> Anthropic Claude models, edit the script directly.
-
-> The pipeline also runs
-> `ocr config set llm.extra_body '{"thinking": {"type": "disabled"}}'`
-> at startup, which turns off thinking-mode requests for
-> compatibility across LLM providers that don't support that field.
-> Remove the line if your provider needs thinking-mode left on.
+Add a pipeline step before OCR that authenticates the selected runner, then invoke OCR with `--runner codex` or `--runner claude`. Do not create OCR-owned model-service credential variables.
 
 > **Quick bot-naming tip.** For Project Access Tokens and Group
 > Access Tokens, the token's **name** is what appears next to MR
@@ -349,7 +310,7 @@ follow a semantic convention like `feat(auth): add OAuth2 support`:
 ```yaml
 script:
   - |
-    ocr review \
+    ocr review --runner codex \
       --background "$CI_MERGE_REQUEST_TITLE" \
       --from "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" \
       --to "${CI_COMMIT_SHA}" \
@@ -365,7 +326,7 @@ sub-agents (default 8):
 ```yaml
 script:
   - |
-    ocr review --rule ./my-rules.json --concurrency 5 \
+    ocr review --runner codex --rule ./my-rules.json --concurrency 5 \
       --from "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" \
       --to "${CI_COMMIT_SHA}"
 ```
@@ -382,10 +343,10 @@ script:
 #### Avoid re-reviewing on every push
 
 `only: [merge_requests]` triggers on **every** MR update, which can
-burn a lot of LLM tokens on long-running MRs. GitLab has no native
+burn a lot of runner subscription quota on long-running MRs. GitLab has no native
 "only on creation" event, so the recommended pattern is to detect
 existing OCR notes before running the review and bail out if any are
-found. Replace the `ocr review` invocation with a Python wrapper:
+found. Replace the `ocr review --runner codex` invocation with a Python wrapper:
 
 ```python
 import json, os, sys, urllib.request
@@ -407,7 +368,7 @@ if any("OpenCodeReview" in n.get("body", "") for n in notes):
     print("OCR already reviewed this MR. Skipping to save tokens.")
     sys.exit(0)
 
-# ...otherwise call `ocr review ...` as usual and write the JSON to
+# ...otherwise call `ocr review --runner codex ...` as usual and write the JSON to
 # the file the posting step expects.
 ```
 
@@ -454,7 +415,7 @@ of the user who originally created the token.
 |---|---|
 | `Cannot find merge-base` | The runner used a shallow clone. The upstream pipeline sets `GIT_DEPTH: 0` to force a full clone — preserve that setting if you edit the file. |
 | `API error 403` when posting | `GITLAB_API_TOKEN` is missing the `api` scope, isn't a member of the project, or — on self-hosted — was issued by a different instance. Reissue with `api` scope and re-add it under *Settings → CI/CD → Variables*. |
-| `Failed to parse OCR output` | `RUNNER_AUTH` or `RUNNER_AUTH_TOKEN` is wrong. Re-check the values under *Settings → CI/CD → Variables*. |
+| `Failed to parse OCR output` | The selected runner is not authenticated in CI. Check the Codex/Claude login step and rerun the job. |
 | Inline comments land on the wrong lines | GitLab requires exact SHA matching for inline discussions; the posting script fetches `versions` metadata to get the right `base_sha` / `start_sha` / `head_sha`. If a finding still can't be anchored, it falls back to a plain MR note. |
 
 The pipeline writes raw review JSON to `/tmp/ocr-result.json` and

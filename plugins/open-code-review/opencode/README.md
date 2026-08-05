@@ -10,7 +10,7 @@ It registers:
 
 ## Prerequisites
 
-Install OCR and authenticate a local subscription runner first. OCR does not configure or use provider API keys; Codex or Claude owns subscription authentication.
+Install OCR and authenticate a local subscription runner first. OCR does not configure or use runner credentials; Codex or Claude owns subscription authentication.
 
 ```bash
 npm install -g @alibaba-group/open-code-review

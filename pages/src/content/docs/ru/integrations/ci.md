@@ -20,14 +20,12 @@ GitLab CI ниже представляют её конкретные реали
 2. **Установка `ocr`** на runner, обычно командой
    `npm install -g @alibaba-group/open-code-review`. Runner временный, поэтому
    это выполняется при каждом запуске.
-3. **Настройка LLM** из секретов CI с помощью `ocr config set` (эндпоинт,
-   токен, модель). Сохранённого `~/.opencodereview`, который можно было бы
-   использовать как резервный источник, нет.
+3. **Аутентификация выбранного локального runner** внутри CI job. Установите Codex или Claude и используйте поддерживаемый CI-платформой неинтерактивный механизм входа (например, утверждённый secret, OIDC exchange или device-flow/bootstrap step). Сам OCR не потребляет напрямую учётные данные модельного сервиса.
 4. **Запуск ревью в режиме диапазона** с машиночитаемым выводом, чтобы stdout
    содержал чистый объект JSON:
 
    ```bash
-   ocr review \
+   ocr review --runner codex \
      --from "origin/<base-branch>" \
      --to "origin/<head-branch>" \
      --format json \
@@ -44,8 +42,8 @@ GitLab CI ниже представляют её конкретные реали
    пакетной публикации отклоняет запрос, этап публикации также возвращается к
    обычному итоговому комментарию.
 
-Всегда используются два вида учётных данных: **учётные данные LLM**, с помощью
-которых OCR создаёт замечания, и **токен записи PR/MR**, с помощью которого
+Всегда используются два вида учётных данных: выбранная **аутентификация runner** для
+Codex или Claude, с помощью которой создаются замечания, и **токен записи PR/MR**, с помощью которого
 этап публикации отправляет комментарии. В рецепте GitHub второй токен бесплатно
 предоставляется как `GITHUB_TOKEN`. Для GitLab рекомендуется явно заданный
 `GITLAB_API_TOKEN`, но для MR из форков в качестве резервного варианта
@@ -67,7 +65,7 @@ GitLab CI ниже представляют её конкретные реали
   OCR только читает diff и не выполняет код из PR.)
 - Устанавливает OCR командой
   `npm install -g @alibaba-group/open-code-review`, записывает конфигурацию с
-  помощью `ocr config set`, затем запускает основную команду в режиме диапазона
+  аутентифицирует выбранный Codex или Claude runner, затем запускает основную команду в режиме диапазона
   веток.
 - Разбирает объект JSON и публикует каждое замечание как встроенный комментарий
   ревью через GitHub Pull Request Review API. Комментарии без сведений о
@@ -90,20 +88,10 @@ curl -o .github/workflows/ocr-review.yml \
 
 | Секрет | Обязательно | Описание |
 |---|---|---|
-| `RUNNER_AUTH` | Да | Эндпоинт LLM API (например, `https://api.openai.com/v1/chat/completions`). |
-| `RUNNER_AUTH_TOKEN` | Да | Токен аутентификации LLM API. Этот секрет CI передаётся в `authenticate the selected runner`. (Прямая переменная окружения OCR называется `RUNNER_AUTH`, а не `RUNNER_AUTH_TOKEN`.) |
-| `RUNNER_MODEL` | Нет | Имя модели. Значения по умолчанию нет, его нужно задать явно. |
-| `RUNNER_AUTH_MODE` | Нет | Установите `true` для моделей Anthropic Claude. |
+| `CODEX_AUTH` или `CLAUDE_AUTH` | Да | CI secret(s), используемые шагом входа в runner. Точный формат зависит от CLI Codex/Claude и CI-платформы. |
+| `GITHUB_TOKEN` | Авто | Токен GitHub для публикации PR review comments. |
 
-`GITHUB_TOKEN` предоставляется автоматически; workflow объявляет разрешение
-`pull-requests: write`, чтобы публиковать комментарии ревью.
-
-> При запуске workflow также выполняет
-> `ocr config set llm.extra_body '{"thinking": {"type": "disabled"}}'`,
-> отключая запросы режима мышления для совместимости с провайдерами LLM,
-> которые не поддерживают это поле. Удалите строку, если вашему провайдеру
-> требуется включённый режим мышления.
-
+Перед OCR добавьте шаг аутентификации runner, затем запускайте OCR с `--runner codex` или `--runner claude`. Не создавайте переменные учётных данных модельного сервиса, принадлежащие OCR.
 ### Настройка
 
 Все следующие изменения вносятся в только что скопированный файл workflow
@@ -123,7 +111,7 @@ curl -o .github/workflows/ocr-review.yml \
     BASE_REF: ${{ github.base_ref }}
     HEAD_REF: ${{ github.head_ref }}
   run: |
-    ocr review \
+    ocr review --runner codex \
       --background "$PR_TITLE" \
       --from "origin/$BASE_REF" \
       --to "origin/$HEAD_REF" \
@@ -145,7 +133,7 @@ curl -o .github/workflows/ocr-review.yml \
     BASE_REF: ${{ github.base_ref }}
     HEAD_REF: ${{ github.head_ref }}
   run: |
-    ocr review --rule ./my-rules.json \
+    ocr review --runner codex --rule ./my-rules.json \
       --from "origin/$BASE_REF" \
       --to "origin/$HEAD_REF"
 ```
@@ -156,7 +144,7 @@ curl -o .github/workflows/ocr-review.yml \
 
 По умолчанию параллельно работают 8 субагентов по отдельным файлам. Для
 крупных PR уменьшите это число, чтобы не превысить ограничения частоты запросов
-провайдера LLM:
+выбранной подписки runner:
 
 ```yaml
 - name: Run OCR review
@@ -164,7 +152,7 @@ curl -o .github/workflows/ocr-review.yml \
     BASE_REF: ${{ github.base_ref }}
     HEAD_REF: ${{ github.head_ref }}
   run: |
-    ocr review --concurrency 5 \
+    ocr review --runner codex --concurrency 5 \
       --from "origin/$BASE_REF" \
       --to "origin/$HEAD_REF"
 ```
@@ -262,70 +250,46 @@ if: |
 | Симптом | Причина / исправление |
 |---|---|
 | `Cannot find merge-base` | На этапе checkout использовалось неглубокое клонирование, но для ревью диапазона нужна полная история. Исходный workflow задаёт `fetch-depth: 0` для `actions/checkout`; сохраните эту настройку при редактировании файла. |
-| `Failed to parse OCR output` | `RUNNER_AUTH` или `RUNNER_AUTH_TOKEN` отсутствует либо задан неверно. Повторно проверьте значения в *Settings → Secrets and variables → Actions*. |
+| `Failed to parse OCR output` | Выбранный runner не аутентифицирован в CI. Проверьте шаг входа Codex/Claude и перезапустите job. |
 | Комментарии ревью попадают не на те строки | Обычно это означает, что diff изменился между началом ревью и публикацией комментариев. В этом случае скрипт публикации возвращается к обычному комментарию задачи, дополнительных действий не требуется. |
-
-> **Примечание.** Переменная окружения `OCR_DEBUG` **пока не реализована** в
-> OCR, поэтому `OCR_DEBUG: "1"` ни на что не влияет. Она описана здесь на
-> случай будущей реализации. Чтобы получить подробный вывод сейчас, изучите
-> исходные JSON ревью и stderr, которые workflow записывает в
-> `/tmp/ocr-result.json` и `/tmp/ocr-stderr.log` (см. устранение неполадок
-> ниже), либо запустите `ocr review` локально.
 
 ## GitLab CI
 
-Исходный конвейер находится в
+Готовый конвейер находится в
 [`examples/gitlab_ci/.gitlab-ci.yml`](https://github.com/alibaba/open-code-review/blob/main/examples/gitlab_ci/.gitlab-ci.yml).
 
 ### Что он делает
 
-- Запускается по событиям `merge_requests` (все события MR: создание,
-  обновление, повторное открытие).
-- Работает в образе `node:20`, устанавливает OCR, настраивает его с помощью
-  `ocr config set`, затем запускает основную команду в режиме diff MR.
-- Разбирает объект JSON встроенным скриптом Python и публикует каждое замечание
-  как GitLab Discussion (встроенное в diff), используя эндпоинт `versions` MR
-  для вычисления правильных `base_sha` / `start_sha` / `head_sha` и точного
-  позиционирования. Для комментариев, которые невозможно опубликовать внутри
-  diff, возвращается к обычным заметкам MR, а в конце публикует итоговую заметку.
+- Запускается на события `merge_requests`.
+- Работает в Node-образе, устанавливает OCR, аутентифицирует выбранный runner Codex или Claude, затем запускает основную команду в режиме MR diff с `--runner`.
+- Разбирает JSON envelope и публикует каждое замечание как GitLab Discussion, с откатом к обычным MR notes, если inline-позиция недоступна.
 
 ### Установка
 
-Поместите конвейер в корень репозитория:
+Поместите pipeline в корень репозитория:
 
 ```bash
 curl -o .gitlab-ci.yml \
   https://raw.githubusercontent.com/alibaba/open-code-review/main/examples/gitlab_ci/.gitlab-ci.yml
 ```
 
-Если у вас уже есть `.gitlab-ci.yml` и вы хотите его сохранить, добавьте рецепт
-по другому пути и подключите его через `include:`:
+Если `.gitlab-ci.yml` уже есть, положите рецепт в другой путь и подключите его:
 
 ```yaml
 include:
   - local: 'ci/ocr-review.gitlab-ci.yml'
 ```
 
-### Необходимые переменные CI/CD
+### Обязательные переменные CI/CD
 
-Задайте их в разделе **Settings → CI/CD → Variables**:
+Настройте в **Settings → CI/CD → Variables**:
 
-| Переменная | Обязательно | Маскирование | Описание |
+| Переменная | Обязательна | Masked | Описание |
 |---|---|---|---|
-| `RUNNER_AUTH` | Да | Нет | URL эндпоинта LLM API. |
-| `RUNNER_AUTH_TOKEN` | Да | Да | Токен аутентификации API. Эта переменная CI передаётся в `authenticate the selected runner`. (Прямая переменная окружения OCR называется `RUNNER_AUTH`, а не `RUNNER_AUTH_TOKEN`.) |
-| `RUNNER_MODEL` | Нет | Нет | Имя модели. Значения по умолчанию нет, его нужно задать явно. |
-| `GITLAB_API_TOKEN` | Нет | Да | Токен доступа проекта / пользователя / группы с областью `api`. Необязателен: если он отсутствует, в качестве резервного варианта используется встроенный `CI_JOB_TOKEN` (например, для MR из форков). Для надёжности рекомендуется отдельный `GITLAB_API_TOKEN`. |
+| `CODEX_AUTH` или `CLAUDE_AUTH` | Да | Да | CI secret(s), используемые шагом входа в runner. Точный формат зависит от CLI Codex/Claude и CI-платформы. |
+| `GITLAB_API_TOKEN` | Нет | Да | Project / personal / group access token с областью `api` для публикации комментариев. Необязателен; для MR из форков можно использовать встроенный `CI_JOB_TOKEN` как fallback. |
 
-> GitLab отклоняет переменные короче 8 символов, поэтому в конвейере
-> `llm.use_anthropic` жёстко задан как `false`. Для моделей Anthropic Claude
-> измените скрипт напрямую.
-
-> При запуске конвейер также выполняет
-> `ocr config set llm.extra_body '{"thinking": {"type": "disabled"}}'`,
-> отключая запросы режима мышления для совместимости с провайдерами LLM,
-> которые не поддерживают это поле. Удалите строку, если вашему провайдеру
-> требуется включённый режим мышления.
+Перед OCR добавьте шаг pipeline, который аутентифицирует выбранный runner, затем запускайте OCR с `--runner codex` или `--runner claude`. Не создавайте переменные учётных данных модельного сервиса, принадлежащие OCR.
 
 > **Быстрый совет по имени бота.** Для Project Access Token и Group Access
 > Token рядом с обсуждениями MR отображается **имя** токена. Назовите токен
@@ -346,7 +310,7 @@ include:
 ```yaml
 script:
   - |
-    ocr review \
+    ocr review --runner codex \
       --background "$CI_MERGE_REQUEST_TITLE" \
       --from "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" \
       --to "${CI_COMMIT_SHA}" \
@@ -362,7 +326,7 @@ script:
 ```yaml
 script:
   - |
-    ocr review --rule ./my-rules.json --concurrency 5 \
+    ocr review --runner codex --rule ./my-rules.json --concurrency 5 \
       --from "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" \
       --to "${CI_COMMIT_SHA}"
 ```
@@ -379,10 +343,10 @@ script:
 #### Как избежать повторного ревью при каждой отправке
 
 `only: [merge_requests]` запускается при **каждом** обновлении MR, что может
-потратить много токенов LLM на долгоживущие MR. В GitLab нет встроенного
+потратить много квоты подписки runner на долгоживущие MR. В GitLab нет встроенного
 события «только при создании», поэтому рекомендуется обнаруживать существующие
 заметки OCR перед запуском ревью и завершаться, если они найдены. Замените
-вызов `ocr review` обёрткой Python:
+вызов `ocr review --runner codex` обёрткой Python:
 
 ```python
 import json, os, sys, urllib.request
@@ -404,7 +368,7 @@ if any("OpenCodeReview" in n.get("body", "") for n in notes):
     print("OCR already reviewed this MR. Skipping to save tokens.")
     sys.exit(0)
 
-# ...otherwise call `ocr review ...` as usual and write the JSON to
+# ...otherwise call `ocr review --runner codex ...` as usual and write the JSON to
 # the file the posting step expects.
 ```
 
@@ -450,7 +414,7 @@ if any("OpenCodeReview" in n.get("body", "") for n in notes):
 |---|---|
 | `Cannot find merge-base` | Runner использовал неглубокое клонирование. Исходный конвейер задаёт `GIT_DEPTH: 0`, чтобы принудительно получить полную копию; сохраните эту настройку при редактировании файла. |
 | `API error 403` при публикации | У `GITLAB_API_TOKEN` нет области `api`, токен не принадлежит участнику проекта или, для локального GitLab, выпущен другим экземпляром. Перевыпустите токен с областью `api` и снова добавьте его в *Settings → CI/CD → Variables*. |
-| `Failed to parse OCR output` | Неверно задан `RUNNER_AUTH` или `RUNNER_AUTH_TOKEN`. Повторно проверьте значения в *Settings → CI/CD → Variables*. |
+| `Failed to parse OCR output` | Выбранный runner не аутентифицирован в CI. Проверьте шаг входа Codex/Claude и перезапустите job. |
 | Встроенные комментарии попадают не на те строки | GitLab требует точного совпадения SHA для встроенных обсуждений; скрипт публикации получает метаданные `versions`, чтобы использовать правильные `base_sha` / `start_sha` / `head_sha`. Если замечание всё равно не удаётся привязать, оно публикуется как обычная заметка MR. |
 
 Конвейер записывает исходный JSON ревью в `/tmp/ocr-result.json`, а stderr — в

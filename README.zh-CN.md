@@ -114,7 +114,7 @@ npm install -g @alibaba-group/open-code-review
 
 **1. 登录本地 runner**
 
-OCR 现在通过已安装的本地 CLI 订阅运行。先登录你要使用的 runner；OCR 本身不会配置或使用供应商 API 密钥。
+OCR 现在通过已安装的本地 CLI 订阅运行。先登录你要使用的 runner；OCR 本身不会保存 runner 凭据。
 
 ```bash
 codex login                 # or: claude auth login --claudeai
@@ -124,7 +124,7 @@ ocr scan --runner claude --path internal/agent
 
 除 `--preview` 等只读/预检命令外，`ocr review` 与 `ocr scan` 都必须传入 `--runner`。如需为单次运行覆盖 runner 默认模型，可选传入 `--runner-model <name>`。
 
-本地设置见[配置指南](https://open-codereview.ai/docs/configuration)。CI 认证是独立的：CI 任务应在该环境中登录所选 runner，而不是保存 OCR 供应商凭据。
+本地设置见[配置指南](https://open-codereview.ai/docs/configuration)。CI 认证是独立的：CI 任务应在该环境中登录所选 runner，而不是保存 OCR 自有凭据。
 
 **2. 开始审查**
 

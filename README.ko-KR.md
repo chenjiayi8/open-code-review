@@ -114,7 +114,7 @@ npm install -g @alibaba-group/open-code-review
 
 **1. 로컬 runner 로그인**
 
-OCR은 설치된 로컬 CLI 구독을 통해 실행됩니다. 사용할 runner에 먼저 로그인하세요. OCR 자체는 provider API key를 설정하거나 사용하지 않습니다.
+OCR은 설치된 로컬 CLI 구독을 통해 실행됩니다. 사용할 runner에 먼저 로그인하세요. OCR 자체는 runner credential을 저장하지 않습니다.
 
 ```bash
 codex login                 # or: claude auth login --claudeai
@@ -124,7 +124,7 @@ ocr scan --runner claude --path internal/agent
 
 `--preview` 같은 read-only/preflight 명령을 제외하면 `ocr review`와 `ocr scan`에는 `--runner`가 필수입니다. 한 번의 실행에서 runner 기본 모델만 바꾸려면 `--runner-model <name>`을 선택적으로 지정하세요.
 
-로컬 설정은 [설정 가이드](https://open-codereview.ai/docs/configuration)를 참조하세요. CI 인증은 별도입니다. CI 작업에서는 OCR provider credential을 저장하지 말고 해당 환경에서 선택한 runner에 로그인해야 합니다.
+로컬 설정은 [설정 가이드](https://open-codereview.ai/docs/configuration)를 참조하세요. CI 인증은 별도입니다. CI 작업에서는 OCR 자체 credential을 저장하지 말고 해당 환경에서 선택한 runner에 로그인해야 합니다.
 
 **2. 리뷰 실행**
 

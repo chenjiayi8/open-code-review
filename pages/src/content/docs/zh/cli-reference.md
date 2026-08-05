@@ -8,7 +8,7 @@ sidebar:
 
 ## 认证
 
-OCR 不管理供应商端点、供应商模型或 API 密钥。先登录已安装的 runner CLI：
+OCR 不管理 runner 凭据或供应商连接设置。先登录已安装的 runner CLI：
 
 ```bash
 codex login                 # or: claude auth login --claudeai

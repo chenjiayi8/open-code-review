@@ -11,37 +11,23 @@ sidebar:
 
 ### `runner subscription authentication required`
 
+OCR 的 review 和 scan 命令使用已安装的本地订阅 runner。非 preview 运行必须传入 `--runner codex` 或 `--runner claude`，并先登录对应 CLI：
+
+```bash
+codex login                 # or: claude auth login --claudeai
+ocr review --runner codex
+ocr scan --runner claude --path internal/agent
 ```
-runner subscription authentication required; run codex login or claude auth login --claudeai,
-~/.opencodereview/config.json, or ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN/
-ANTHROPIC_MODEL must be set
-```
 
-OCR 走完了整条端点解析链（[配置](../configuration/#复用已有的环境变量)）但没
-找到完整的 `(URL, token, model)` 三元组。要么：
+如果 OCR 报告需要 runner 订阅认证，说明所选 runner 缺失、未登录，或在当前环境不可用。安装/登录该 runner 后重试。不要添加 OCR 端点、token 或模型变量；这些凭据不归 OCR 管理。
 
-- 运行 `ocr config set llm.url …` / `llm.auth_token …` / `llm.model …` 填充
-  `~/.opencodereview/config.json`，**或**
-- 导出 `RUNNER_AUTH` / `RUNNER_AUTH` / `RUNNER_MODEL`，**或**
-- 若你已在用 Claude Code，导出 `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` /
-  `ANTHROPIC_MODEL`。
+### Preview 可用但 review 失败
 
-然后 `ocr review --preview` 验证连通性再重试评审。
+`ocr review --preview` 是只读命令，不调用 runner。完整 review 仍可能因为缺少 `--runner` 或所选 Codex/Claude CLI 未认证而失败。登录后用 `--runner codex` 或 `--runner claude` 重新运行。
 
-### `ocr review --preview` 显示错误的来源
+### Runner 返回认证失败
 
-OCR 取**第一个**完整三元组，而非最后一个。因此若配置文件已有全部三个 llm.*
-key，环境变量会被忽略。要让环境变量生效，删除配置 key（删除文件或手动 unset）或
-用 `ocr config set` 切换到新值。
-
-### `ocr review --preview` 返回 401 / 403
-
-token 缺少 scope、已过期或厂商不匹配。Anthropic 与 OpenAI 用不同的 auth header 与
-URL 格式——确保 `llm.use_anthropic` 与你指向的 URL 相匹配：
-
-- Anthropic：URL 以 `/v1/messages` 结尾，`use_anthropic=true`。
-- OpenAI / OpenAI 兼容：URL 以 `/v1/chat/completions` 结尾，
-  `use_anthropic=false`。
+登录、订阅、额度或权限错误来自所选 Codex 或 Claude CLI。请在同一个 shell 或 CI job 中重新认证该工具后重试 OCR。在 CI 中，先用 CI 平台支持的 secret/OIDC/device-flow 机制认证 runner，再运行 `ocr review --runner ...`。
 
 ### `not a git repository`
 

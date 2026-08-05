@@ -28,7 +28,7 @@ metric 和 event。接入 collector 后，这些数据足以回答“agent 把�
 
 ## 启用遥测
 
-与 LLM 端点一样，遥测可通过持久化 config 或环境变量配置——冲突时环境变量优先。
+与其他 OCR 设置一样，遥测可通过持久化 config 或环境变量配置——冲突时环境变量优先。
 
 ### 配置文件方式
 
@@ -64,7 +64,7 @@ export OCR_CONTENT_LOGGING=0                        # reserved / currently a no-
 ```
 
 设置 `OTEL_EXPORTER_OTLP_ENDPOINT` 也会强制 `exporter=otlp`——适合一次性的
-`OTEL_EXPORTER_OTLP_ENDPOINT=… ocr review` 运行。
+`OTEL_EXPORTER_OTLP_ENDPOINT=… ocr review --runner codex` 运行。
 
 ## 导出什么
 
@@ -150,7 +150,7 @@ JSONL 转录。它们完全存在于 `~/.opencodereview/` 下的磁盘上，绝�
 ```bash
 ocr config set telemetry.enabled true
 ocr config set telemetry.exporter console
-ocr review --commit HEAD
+ocr review --runner codex --commit HEAD
 ```
 
 span 以人类可读形式打印到 stdout。可通过管道传给 `less` 查看长运行输出。
@@ -181,7 +181,7 @@ service:
 ```bash
 export OCR_ENABLE_TELEMETRY=1
 export OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
-ocr review --from main --to feature/branch
+ocr review --runner codex --from main --to feature/branch
 ```
 
 打开 Tempo → 按 `service.name=open-code-review` 搜索 → 点击任意 trace 看完整
@@ -206,16 +206,15 @@ span 以该 service name 出现在 APM 下；LLM metric 带上述标签出现在
 ```yaml
 - name: Code review
   env:
-    RUNNER_AUTH: ${{ secrets.RUNNER_AUTH }}
-    RUNNER_AUTH: ${{ secrets.RUNNER_AUTH }}
-    RUNNER_MODEL: claude-opus-4-6
     OCR_ENABLE_TELEMETRY: "1"
     OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_COLLECTOR_URL }}
     OTEL_SERVICE_NAME: open-code-review-ci
-  run: ocr review --from origin/main --to HEAD --audience agent
+  run: |
+    codex login                 # or: claude auth login --claudeai
+    ocr review --runner codex --from origin/main --to HEAD --audience agent
 ```
 
-`OTEL_SERVICE_NAME` 可把 CI trace 与人工开发运行的 trace 区分开。
+在调用 OCR 前，使用 CI 平台支持的 secret/OIDC/device-flow 机制认证所选 Codex 或 Claude runner。`OTEL_SERVICE_NAME` 可把 CI trace 与人工开发运行的 trace 区分开。
 
 ## 解析优先级
 

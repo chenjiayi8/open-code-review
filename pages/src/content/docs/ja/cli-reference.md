@@ -8,7 +8,7 @@ sidebar:
 
 ## 認証
 
-OCR はプロバイダーのエンドポイント、モデル、API キーを管理しません。先にインストール済み runner CLI にログインします。
+OCR は runner 資格情報やプロバイダー接続設定を管理しません。先にインストール済み runner CLI にログインします。
 
 ```bash
 codex login                 # or: claude auth login --claudeai
