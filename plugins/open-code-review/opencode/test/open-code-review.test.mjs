@@ -419,7 +419,7 @@ test("ocr_review preserves valid JSON after validation", async () => {
   )
 })
 
-test("ocr_health reports version success and runner preflight failure", async () => {
+test("ocr_health reports version success and preview scope validation failure", async () => {
   await withFakeOcr(
     [
       "if (process.argv[2] === 'version') {",
@@ -436,7 +436,7 @@ test("ocr_health reports version success and runner preflight failure", async ()
         toolContext(worktree),
       )
       assert.match(output, /OpenCodeReview 1\.2\.3/)
-      assert.match(output, /Runner preflight failed:/)
+      assert.match(output, /Preview scope validation failed:/)
       assert.match(output, /--runner/)
       assert.match(output, /claude/)
       assert.match(output, /--runner-model/)

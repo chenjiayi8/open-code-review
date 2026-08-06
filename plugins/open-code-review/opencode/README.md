@@ -5,7 +5,7 @@ This integration exposes OpenCodeReview as native tools and slash commands in [O
 It registers:
 
 - `ocr_review` — review workspace changes, one commit, or a ref range and return structured JSON findings.
-- `ocr_health` — show the installed OCR version and preflight the selected local runner.
+- `ocr_health` — show the installed OCR version and run runner-free preview/scope validation.
 - `/ocr-review` and `/ocr-health` — convenient prompts that invoke the tools.
 
 ## Prerequisites

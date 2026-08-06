@@ -129,7 +129,8 @@ const QuickStartSection: React.FC = () => {
               <CodeBlock label={t('quickstart.step2Label1')} code="codex login" onCopy={handleCopy} />
               <CodeBlock
                 label={t('quickstart.step2Label2')}
-                code={`claude auth login --claudeai`}
+                code={`claude auth login
+# or use the runner's supported API-token auth`}
                 multiline
                 onCopy={handleCopy}
               />

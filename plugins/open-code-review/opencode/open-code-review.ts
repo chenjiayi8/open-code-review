@@ -297,9 +297,9 @@ export const OpenCodeReviewPlugin: Plugin = async ({ client, worktree }) => {
           "Report findings by severity with exact file and line references.",
       }
       config.command["ocr-health"] ??= {
-        description: "Check OpenCodeReview and selected runner preflight",
+        description: "Check OpenCodeReview version and preview scope validation",
         template:
-          "Use the ocr_health tool with runner codex or claude and explain any runner problem concisely.",
+          "Use the ocr_health tool with runner codex or claude and summarize OCR version plus preview/scope validation output.",
       }
     },
     tool: {
@@ -320,30 +320,30 @@ export const OpenCodeReviewPlugin: Plugin = async ({ client, worktree }) => {
       }),
       ocr_health: tool({
         description:
-          "Check the installed OpenCodeReview version and run read-only preflight for the selected local runner.",
+          "Check the installed OpenCodeReview version and run runner-free preview/scope validation for the selected review scope.",
         args: {
-          runner: tool.schema.string().describe("Local runner to preflight: codex or claude."),
-          runnerModel: optionalString("Optional model hint passed to the selected local runner for preflight."),
+          runner: tool.schema.string().describe("Local runner name used only for preview/scope validation: codex or claude."),
+          runnerModel: optionalString("Optional model hint included in preview/scope validation only; no runner is invoked."),
         },
         async execute(args, context) {
           const input = args as HealthInput
           const runner = normalizeRunner(input.runner)
           const cwd = context.worktree || context.directory || worktree
-          const preflightArgs = ["review", "--runner", runner, "--audience", "agent", "--repo", cwd, "--preview"]
-          pushValue(preflightArgs, "--runner-model", input.runnerModel)
-          const [version, preflight] = await Promise.allSettled([
+          const previewArgs = ["review", "--runner", runner, "--audience", "agent", "--repo", cwd, "--preview"]
+          pushValue(previewArgs, "--runner-model", input.runnerModel)
+          const [version, preview] = await Promise.allSettled([
             runOcr(["version"], {
               cwd,
               timeoutMs: 30_000,
               signal: context.abort,
             }),
-            runOcr(preflightArgs, {
+            runOcr(previewArgs, {
               cwd,
               timeoutMs: 60_000,
               signal: context.abort,
             }),
           ])
-          const rejected = [version, preflight].find(
+          const rejected = [version, preview].find(
             (result): result is PromiseRejectedResult => result.status === "rejected",
           )
           if (context.abort.aborted && rejected) {
@@ -356,10 +356,10 @@ export const OpenCodeReviewPlugin: Plugin = async ({ client, worktree }) => {
           } else {
             parts.push(`Version check failed: ${version.reason?.message ?? "unknown error"}`)
           }
-          if (preflight.status === "fulfilled") {
-            parts.push(preflight.value.stdout, preflight.value.stderr)
+          if (preview.status === "fulfilled") {
+            parts.push(preview.value.stdout, preview.value.stderr)
           } else {
-            parts.push(`Runner preflight failed: ${preflight.reason?.message ?? "unknown error"}`)
+            parts.push(`Preview scope validation failed: ${preview.reason?.message ?? "unknown error"}`)
           }
           return parts.filter(Boolean).join("\n")
         },
