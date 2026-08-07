@@ -172,8 +172,11 @@ func runExecCommand(ctx context.Context, executable string, args []string, stdin
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		switch {
+		case errors.Is(ctx.Err(), context.DeadlineExceeded):
 			return nil, fmt.Errorf("%w: %s", ErrRunnerTimeout, executable)
+		case errors.Is(ctx.Err(), context.Canceled):
+			return nil, fmt.Errorf("%w: %s", context.Canceled, executable)
 		}
 		message := strings.TrimSpace(stderr.String())
 		if message == "" {
