@@ -345,3 +345,107 @@ func TestRunExternalSkipsLargeDiffBeforeInvokingRunner(t *testing.T) {
 		t.Fatalf("manifest = %+v, want skipped empty coverage", manifest)
 	}
 }
+
+func TestRunExternalBuildsStructuredDiffContextForReviewModes(t *testing.T) {
+	cases := []struct {
+		name string
+		mode string
+		args func(t *testing.T, repo string, base, head string, sess *session.SessionHistory) Args
+		want func(t *testing.T, req localrunner.Request, base, head string)
+	}{
+		{
+			name: "workspace",
+			mode: session.ReviewModeWorkspace,
+			args: func(t *testing.T, repo string, base, head string, sess *session.SessionHistory) Args {
+				return Args{RepoDir: repo, Model: "local-runner", Session: sess, ReviewMode: session.ReviewModeWorkspace}
+			},
+			want: func(t *testing.T, req localrunner.Request, base, head string) {
+				t.Helper()
+				if req.Review.Mode != session.ReviewModeWorkspace || req.Review.RequestedFrom != "" || req.Review.RequestedHead != "" || req.Review.ResolvedBase != base || req.Review.ResolvedHead != "" || req.Review.ExactRange != "" {
+					t.Fatalf("workspace review context = %+v, want mode/base only", req.Review)
+				}
+			},
+		},
+		{
+			name: "range",
+			mode: session.ReviewModeRange,
+			args: func(t *testing.T, repo string, base, head string, sess *session.SessionHistory) Args {
+				return Args{RepoDir: repo, Model: "local-runner", Session: sess, From: base, To: head, ReviewMode: session.ReviewModeRange}
+			},
+			want: func(t *testing.T, req localrunner.Request, base, head string) {
+				t.Helper()
+				if req.Review.Mode != session.ReviewModeRange || req.Review.RequestedFrom != base || req.Review.RequestedHead != head || req.Review.ResolvedBase != base || req.Review.ResolvedHead != head || req.Review.ExactRange != base+".."+head {
+					t.Fatalf("range review context = %+v, want requested/resolved range", req.Review)
+				}
+			},
+		},
+		{
+			name: "commit",
+			mode: session.ReviewModeCommit,
+			args: func(t *testing.T, repo string, base, head string, sess *session.SessionHistory) Args {
+				return Args{RepoDir: repo, Model: "local-runner", Session: sess, Commit: head, ReviewMode: session.ReviewModeCommit}
+			},
+			want: func(t *testing.T, req localrunner.Request, base, head string) {
+				t.Helper()
+				if req.Review.Mode != session.ReviewModeCommit || req.Review.RequestedFrom != "" || req.Review.RequestedHead != head || req.Review.ResolvedBase != base || req.Review.ResolvedHead != head || req.Review.ExactRange != base+".."+head {
+					t.Fatalf("commit review context = %+v, want requested commit and resolved parent range", req.Review)
+				}
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := initExternalRunnerRepo(t, map[string]string{
+				"a.go": "package main\n\nfunc a() string {\n\treturn \"old\"\n}\n",
+			})
+			base := strings.TrimSpace(agentGitOutput(t, repo, "rev-parse", "HEAD"))
+			writeAgentFile(t, repo, "a.go", "package main\n\nfunc a() string {\n\tvalue := \"new\"\n\treturn value\n}\n")
+			head := ""
+			if tc.mode != session.ReviewModeWorkspace {
+				runAgentGit(t, repo, "add", "a.go")
+				runAgentGit(t, repo, "commit", "-q", "-m", "change a")
+				head = strings.TrimSpace(agentGitOutput(t, repo, "rev-parse", "HEAD"))
+			}
+			t.Setenv("HOME", t.TempDir())
+			sess := session.New(repo, "feature", "local-runner", session.SessionOptions{ReviewMode: tc.mode, Operation: session.OperationReview})
+			exec := &scriptedRunnerExecutor{result: localrunner.Result{ReviewedFiles: []string{"a.go"}, Findings: []localrunner.Finding{}}}
+			a := New(tc.args(t, repo, base, head, sess))
+
+			_, err := a.RunExternal(context.Background(), localrunner.NewWithExecutor(exec), "")
+			if err != nil {
+				t.Fatalf("RunExternal: %v", err)
+			}
+			if exec.calls != 1 {
+				t.Fatalf("executor calls = %d, want 1", exec.calls)
+			}
+			tc.want(t, exec.req, base, head)
+			if len(exec.req.Files) != 1 {
+				t.Fatalf("runner files = %+v, want one file", exec.req.Files)
+			}
+			file := exec.req.Files[0]
+			if file.Path != "a.go" || file.OldPath != "a.go" || file.NewPath != "a.go" {
+				t.Fatalf("runner file identity = %+v, want a.go old/new path", file)
+			}
+			if len(file.ChangedRanges) == 0 || file.ChangedRanges[0].NewStart == 0 || file.ChangedRanges[0].NewEnd == 0 {
+				t.Fatalf("changed ranges = %+v, want non-empty new-line range", file.ChangedRanges)
+			}
+			for _, want := range []string{"diff --git a/a.go b/a.go", "@@", "+\tvalue := \"new\""} {
+				if !strings.Contains(file.UnifiedDiff, want) {
+					t.Fatalf("unified diff missing %q:\n%s", want, file.UnifiedDiff)
+				}
+			}
+		})
+	}
+}
+
+func agentGitOutput(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v failed: %v\n%s", args, err, out)
+	}
+	return string(out)
+}
