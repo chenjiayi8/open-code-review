@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -128,6 +129,9 @@ func validateScanOptions(opts *scanOptions) error {
 	if opts.preview && opts.resume != "" {
 		return fmt.Errorf("--preview and --resume cannot be used together")
 	}
+	if err := validateScanBatch(opts.batch); err != nil {
+		return err
+	}
 	if !opts.preview {
 		if opts.runner == "" {
 			return fmt.Errorf("--runner is required for scan (use --preview to inspect files without invoking a runner)")
@@ -141,6 +145,15 @@ func validateScanOptions(opts *scanOptions) error {
 		}
 	}
 	return nil
+}
+
+func validateScanBatch(batch string) error {
+	switch strings.ToLower(strings.TrimSpace(batch)) {
+	case "", "none", "by-language", "by-directory":
+		return nil
+	default:
+		return fmt.Errorf("invalid --batch value %q: must be 'none', 'by-language', or 'by-directory'", batch)
+	}
 }
 
 func validateRunner(kind string) error {

@@ -170,12 +170,36 @@ func (a *Agent) validateExternalResult(result localrunner.Result, selected []mod
 		cm := finding.AsComment()
 		resolved := diff.ResolveLineNumbers([]model.LlmComment{cm}, selected)
 		cm = resolved[0]
-		if err := validateExternalCommentLine(cm, selectedByPath[finding.Path]); err != nil {
+		d := selectedByPath[finding.Path]
+		if err := validateExternalCommentLine(cm, d); err != nil {
+			return nil, fmt.Errorf("external runner finding %d: %w", i, err)
+		}
+		if err := a.validateExternalFindingScope(cm, d); err != nil {
 			return nil, fmt.Errorf("external runner finding %d: %w", i, err)
 		}
 		comments = append(comments, cm)
 	}
 	return comments, nil
+}
+
+func (a *Agent) validateExternalFindingScope(cm model.LlmComment, d model.Diff) error {
+	mode := a.reviewMode()
+	if mode == session.ReviewModeWorkspace {
+		return nil
+	}
+	ranges := changedRangesFromDiff(d)
+	if len(ranges) == 0 {
+		return nil
+	}
+	for _, r := range ranges {
+		if r.NewStart < 1 || r.NewEnd < r.NewStart {
+			continue
+		}
+		if cm.StartLine <= r.NewEnd && cm.EndLine >= r.NewStart {
+			return nil
+		}
+	}
+	return fmt.Errorf("line range %d-%d is outside changed ranges for %s", cm.StartLine, cm.EndLine, effectivePath(d))
 }
 
 func validateExternalCommentLine(cm model.LlmComment, d model.Diff) error {

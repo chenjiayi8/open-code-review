@@ -64,6 +64,26 @@ func TestRunExecCommandClassifiesNativeAuthenticationFailure(t *testing.T) {
 	}
 }
 
+func TestRunExecCommandPreservesCanceledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := runExecCommand(ctx, "/bin/sh", []string{"-c", "sleep 1"}, nil, nil, "")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("runExecCommand error = %v, want context.Canceled", err)
+	}
+}
+
+func TestRunExecCommandPreservesTimeoutClassification(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond)
+	defer cancel()
+
+	_, err := runExecCommand(ctx, "/bin/sh", []string{"-c", "sleep 1"}, nil, nil, "")
+	if !errors.Is(err, ErrRunnerTimeout) {
+		t.Fatalf("runExecCommand error = %v, want ErrRunnerTimeout", err)
+	}
+}
+
 func TestPreflightRejectsAbsentExecutableFromInjectedLookup(t *testing.T) {
 	r := &Runner{
 		kind: Claude,

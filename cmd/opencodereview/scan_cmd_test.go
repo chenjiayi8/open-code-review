@@ -112,6 +112,30 @@ func TestParseScanFlagsRejectsNegativeRunnerTimeout(t *testing.T) {
 	}
 }
 
+func TestParseScanFlagsRejectsInvalidBatch(t *testing.T) {
+	_, err := parseScanFlags([]string{"--runner", "codex", "--batch", "sideways"})
+	if err == nil {
+		t.Fatal("expected error for invalid --batch")
+	}
+	if !strings.Contains(err.Error(), "invalid --batch") {
+		t.Fatalf("error = %q, want invalid --batch", err.Error())
+	}
+}
+
+func TestParseScanFlagsAcceptsValidBatchValues(t *testing.T) {
+	for _, value := range []string{"none", "by-language", "by-directory"} {
+		t.Run(value, func(t *testing.T) {
+			opts, err := parseScanFlags([]string{"--runner", "codex", "--batch", value})
+			if err != nil {
+				t.Fatalf("parseScanFlags: %v", err)
+			}
+			if opts.batch != value {
+				t.Fatalf("batch = %q, want %q", opts.batch, value)
+			}
+		})
+	}
+}
+
 func TestScanExamplesRequireRunnerForRealExecutionAndAvoidLLMPreviewWording(t *testing.T) {
 	for _, forbidden := range []string{"ocr scan\n", "ocr scan --path", "ocr scan --exclude", "ocr scan --no-plan", "ocr scan --resume"} {
 		if strings.Contains(scanCmd.Example, forbidden) {

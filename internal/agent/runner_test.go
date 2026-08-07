@@ -283,6 +283,60 @@ func TestRunExternalReusesResumeAndRunsOneRemainingFile(t *testing.T) {
 	}
 }
 
+func TestRunExternalRejectsFindingOutsideChangedRanges(t *testing.T) {
+	original := strings.Join([]string{
+		"package main",
+		"",
+		"func header() string {",
+		"	return \"same\"",
+		"}",
+		"",
+		"func spacerOne() string {",
+		"	return \"same\"",
+		"}",
+		"",
+		"func spacerTwo() string {",
+		"	return \"same\"",
+		"}",
+		"",
+		"func target() string {",
+		"	return \"old\"",
+		"}",
+		"",
+	}, "\n")
+	changed := strings.Replace(original, "return \"old\"", "value := \"new\"\n\treturn value", 1)
+	repo := initExternalRunnerRepo(t, map[string]string{"a.go": original})
+	writeAgentFile(t, repo, "a.go", changed)
+	runAgentGit(t, repo, "add", "a.go")
+	runAgentGit(t, repo, "commit", "-q", "-m", "change a")
+	head := strings.TrimSpace(agentGitOutput(t, repo, "rev-parse", "HEAD"))
+	exec := &scriptedRunnerExecutor{result: localrunner.Result{
+		ReviewedFiles: []string{"a.go"},
+		Findings: []localrunner.Finding{{
+			Path:      "a.go",
+			StartLine: 1,
+			EndLine:   1,
+			Content:   "outside the changed hunk",
+			Severity:  model.SeverityLow,
+			Category:  model.CategoryOther,
+		}},
+	}}
+	t.Setenv("HOME", t.TempDir())
+	sess := session.New(repo, "feature", "local-runner", session.SessionOptions{ReviewMode: session.ReviewModeCommit, Operation: session.OperationReview})
+	a := New(Args{RepoDir: repo, Model: "local-runner", Session: sess, Commit: head, ReviewMode: session.ReviewModeCommit})
+
+	comments, err := a.RunExternal(context.Background(), localrunner.NewWithExecutor(exec), "")
+	if err == nil || !strings.Contains(err.Error(), "outside changed ranges") {
+		t.Fatalf("RunExternal error = %v, want outside changed ranges", err)
+	}
+	if len(comments) != 0 {
+		t.Fatalf("comments = %+v, want none", comments)
+	}
+	if got := a.args.CommentCollector.Comments(); len(got) != 0 {
+		t.Fatalf("persisted comments = %+v, want none", got)
+	}
+}
+
 func TestRunExternalRejectsInvalidLineRange(t *testing.T) {
 	repo := initExternalRunnerRepo(t, map[string]string{
 		"a.go": "package main\n\nfunc a() string { return \"old\" }\n",
