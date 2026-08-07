@@ -114,3 +114,45 @@ func TestRenderPromptDiffersByReviewMode(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderPromptUsesFullManifestGuidanceForScanStyleRequests(t *testing.T) {
+	prompt, err := RenderPrompt(Request{
+		Operation:  Review,
+		Repository: "/repo",
+		Files:      []File{{Path: "src/a.go", Rule: "scan whole file"}},
+	})
+	if err != nil {
+		t.Fatalf("RenderPrompt: %v", err)
+	}
+	for _, forbidden := range []string{"changed hunks", "changed hunk context", "changed_ranges", "unified_diff"} {
+		if strings.Contains(prompt, forbidden) {
+			t.Fatalf("scan-style prompt mentioned %q:\n%s", forbidden, prompt)
+		}
+	}
+	for _, want := range []string{"Review exactly the manifest files listed below.", "Do not review, mention, or infer findings for files outside this manifest."} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("scan-style prompt missing %q:\n%s", want, prompt)
+		}
+	}
+}
+
+func TestRenderPromptUsesHunkOnlyGuidanceForDiffRequestsWithContext(t *testing.T) {
+	prompt, err := RenderPrompt(Request{
+		Operation:  Review,
+		Repository: "/repo",
+		Review:     ReviewContext{Mode: "workspace"},
+		Files: []File{{
+			Path:          "src/a.go",
+			ChangedRanges: []ChangedRange{{OldStart: 1, OldEnd: 1, NewStart: 1, NewEnd: 2}},
+			UnifiedDiff:   "@@ -1 +1,2 @@\n-old\n+new\n+more",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("RenderPrompt: %v", err)
+	}
+	for _, want := range []string{"only the changed hunks described for each file", "outside the changed hunk context", "changed_ranges:", "unified_diff:"} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("diff prompt missing %q:\n%s", want, prompt)
+		}
+	}
+}
