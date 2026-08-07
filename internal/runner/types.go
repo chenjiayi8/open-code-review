@@ -17,16 +17,41 @@ const (
 	Review Operation = "review"
 )
 
+// ChangedRange is one changed hunk range from the old file to the new file.
+// Zero end values mean the hunk side has no lines, such as added-only or
+// deleted-only hunk sides.
+type ChangedRange struct {
+	OldStart int
+	OldEnd   int
+	NewStart int
+	NewEnd   int
+}
+
 // File is one selected manifest file the runner is allowed to review.
 type File struct {
-	Path string
-	Rule string
+	Path          string
+	Rule          string
+	OldPath       string
+	NewPath       string
+	ChangedRanges []ChangedRange
+	UnifiedDiff   string
+}
+
+// ReviewContext identifies the review input that produced the selected diffs.
+type ReviewContext struct {
+	Mode          string
+	RequestedFrom string
+	RequestedHead string
+	ResolvedBase  string
+	ResolvedHead  string
+	ExactRange    string
 }
 
 // Request is the complete prompt input for a local runner invocation.
 type Request struct {
 	Operation  Operation
 	Repository string
+	Review     ReviewContext
 	Files      []File
 	Background string
 	Rules      []string

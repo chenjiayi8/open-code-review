@@ -48,6 +48,7 @@ func (a *Agent) RunExternal(ctx context.Context, r *localrunner.Runner, backgrou
 	req := localrunner.Request{
 		Operation:  localrunner.Review,
 		Repository: a.args.RepoDir,
+		Review:     a.runnerReviewContext(),
 		Background: background,
 		Files:      make([]localrunner.File, 0, len(remaining)),
 	}
@@ -56,7 +57,14 @@ func (a *Agent) RunExternal(ctx context.Context, r *localrunner.Runner, backgrou
 	}
 	for _, d := range remaining {
 		path := effectivePath(d)
-		req.Files = append(req.Files, localrunner.File{Path: path, Rule: a.resolveSystemRule(strings.ToLower(path))})
+		req.Files = append(req.Files, localrunner.File{
+			Path:          path,
+			Rule:          a.resolveSystemRule(strings.ToLower(path)),
+			OldPath:       d.OldPath,
+			NewPath:       d.NewPath,
+			ChangedRanges: changedRangesFromDiff(d),
+			UnifiedDiff:   d.Diff,
+		})
 	}
 
 	result, err := r.Run(ctx, req)
@@ -190,4 +198,42 @@ func validateExternalCommentLine(cm model.LlmComment, d model.Diff) error {
 		}
 	}
 	return nil
+}
+
+func (a *Agent) runnerReviewContext() localrunner.ReviewContext {
+	ctx := localrunner.ReviewContext{
+		Mode:         a.reviewMode(),
+		ResolvedBase: a.inputResolution.ResolvedBase,
+		ResolvedHead: a.inputResolution.ResolvedHead,
+		ExactRange:   a.inputResolution.ExactRange,
+	}
+	switch ctx.Mode {
+	case session.ReviewModeRange:
+		ctx.RequestedFrom = a.args.From
+		ctx.RequestedHead = a.args.To
+	case session.ReviewModeCommit:
+		ctx.RequestedHead = a.args.Commit
+	}
+	return ctx
+}
+
+func changedRangesFromDiff(d model.Diff) []localrunner.ChangedRange {
+	hunks := diff.ParseHunks(d.Diff)
+	ranges := make([]localrunner.ChangedRange, 0, len(hunks))
+	for _, h := range hunks {
+		ranges = append(ranges, localrunner.ChangedRange{
+			OldStart: h.OldStart,
+			OldEnd:   rangeEnd(h.OldStart, h.OldCount),
+			NewStart: h.NewStart,
+			NewEnd:   rangeEnd(h.NewStart, h.NewCount),
+		})
+	}
+	return ranges
+}
+
+func rangeEnd(start, count int) int {
+	if count <= 0 {
+		return 0
+	}
+	return start + count - 1
 }

@@ -41,3 +41,76 @@ func TestRenderPromptRejectsEmptyManifest(t *testing.T) {
 		t.Fatal("expected empty manifest rejection")
 	}
 }
+
+func TestRenderPromptIncludesReviewIdentityAndDiffContext(t *testing.T) {
+	prompt, err := RenderPrompt(Request{
+		Operation:  Review,
+		Repository: "/repo",
+		Review: ReviewContext{
+			Mode:          "range",
+			RequestedFrom: "main",
+			RequestedHead: "feature",
+			ResolvedBase:  "base-sha",
+			ResolvedHead:  "head-sha",
+			ExactRange:    "base-sha..head-sha",
+		},
+		Files: []File{{
+			Path:          "src/new.go",
+			OldPath:       "src/old.go",
+			NewPath:       "src/new.go",
+			Rule:          "check regressions",
+			UnifiedDiff:   "diff --git a/src/old.go b/src/new.go\n@@ -10,2 +20,3 @@\n-old\n+new\n+more",
+			ChangedRanges: []ChangedRange{{OldStart: 10, OldEnd: 11, NewStart: 20, NewEnd: 22}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("RenderPrompt: %v", err)
+	}
+	for _, want := range []string{
+		"Review input:",
+		"mode: range",
+		"requested_from: main",
+		"requested_head: feature",
+		"resolved_base: base-sha",
+		"resolved_head: head-sha",
+		"exact_range: base-sha..head-sha",
+		"old_path: src/old.go",
+		"new_path: src/new.go",
+		"changed_ranges:",
+		"old: 10-11, new: 20-22",
+		"unified_diff:",
+		"@@ -10,2 +20,3 @@",
+		"+more",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("prompt missing %q:\n%s", want, prompt)
+		}
+	}
+}
+
+func TestRenderPromptDiffersByReviewMode(t *testing.T) {
+	base := func(ctx ReviewContext) string {
+		t.Helper()
+		prompt, err := RenderPrompt(Request{
+			Operation:  Review,
+			Repository: "/repo",
+			Review:     ctx,
+			Files:      []File{{Path: "src/a.go", NewPath: "src/a.go", UnifiedDiff: "@@ -1 +1 @@\n-old\n+new"}},
+		})
+		if err != nil {
+			t.Fatalf("RenderPrompt: %v", err)
+		}
+		return prompt
+	}
+	workspace := base(ReviewContext{Mode: "workspace", ResolvedBase: "workspace-base"})
+	rangePrompt := base(ReviewContext{Mode: "range", RequestedFrom: "main", RequestedHead: "feature", ResolvedBase: "base", ResolvedHead: "head", ExactRange: "base..head"})
+	commit := base(ReviewContext{Mode: "commit", RequestedHead: "abc123", ResolvedBase: "parent", ResolvedHead: "abc123", ExactRange: "parent..abc123"})
+	if workspace == rangePrompt || workspace == commit || rangePrompt == commit {
+		t.Fatalf("prompts should differ by review mode")
+	}
+	for prompt, want := range map[string]string{workspace: "mode: workspace", rangePrompt: "mode: range", commit: "mode: commit"} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("prompt missing %q:\n%s", want, prompt)
+		}
+	}
+}
