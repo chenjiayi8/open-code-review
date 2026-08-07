@@ -195,7 +195,7 @@ func (a *Agent) validateExternalFindingScope(cm model.LlmComment, d model.Diff) 
 		if r.NewStart < 1 || r.NewEnd < r.NewStart {
 			continue
 		}
-		if cm.StartLine <= r.NewEnd && cm.EndLine >= r.NewStart {
+		if cm.StartLine >= r.NewStart && cm.EndLine <= r.NewEnd {
 			return nil
 		}
 	}

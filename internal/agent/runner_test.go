@@ -337,6 +337,84 @@ func TestRunExternalRejectsFindingOutsideChangedRanges(t *testing.T) {
 	}
 }
 
+func TestRunExternalRejectsPartialOverlapFindingOutsideChangedRangeForDiffModes(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		mode string
+		args func(repo, base, head string, sess *session.SessionHistory) Args
+	}{
+		{
+			name: "range",
+			mode: session.ReviewModeRange,
+			args: func(repo, base, head string, sess *session.SessionHistory) Args {
+				return Args{RepoDir: repo, Model: "local-runner", Session: sess, From: base, To: head, ReviewMode: session.ReviewModeRange}
+			},
+		},
+		{
+			name: "commit",
+			mode: session.ReviewModeCommit,
+			args: func(repo, base, head string, sess *session.SessionHistory) Args {
+				return Args{RepoDir: repo, Model: "local-runner", Session: sess, Commit: head, ReviewMode: session.ReviewModeCommit}
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			original := strings.Join([]string{
+				"package main",
+				"",
+				"func header() string {",
+				"	return \"same\"",
+				"}",
+				"",
+				"func spacerOne() string {",
+				"	return \"same\"",
+				"}",
+				"",
+				"func spacerTwo() string {",
+				"	return \"same\"",
+				"}",
+				"",
+				"func target() string {",
+				"	return \"old\"",
+				"}",
+				"",
+			}, "\n")
+			changed := strings.Replace(original, "return \"old\"", "value := \"new\"\n\treturn value", 1)
+			repo := initExternalRunnerRepo(t, map[string]string{"a.go": original})
+			base := strings.TrimSpace(agentGitOutput(t, repo, "rev-parse", "HEAD"))
+			writeAgentFile(t, repo, "a.go", changed)
+			runAgentGit(t, repo, "add", "a.go")
+			runAgentGit(t, repo, "commit", "-q", "-m", "change a")
+			head := strings.TrimSpace(agentGitOutput(t, repo, "rev-parse", "HEAD"))
+			exec := &scriptedRunnerExecutor{result: localrunner.Result{
+				ReviewedFiles: []string{"a.go"},
+				Findings: []localrunner.Finding{{
+					Path:      "a.go",
+					StartLine: 1,
+					EndLine:   16,
+					Content:   "broad finding starts before the changed hunk but overlaps it",
+					Severity:  model.SeverityLow,
+					Category:  model.CategoryOther,
+				}},
+			}}
+			t.Setenv("HOME", t.TempDir())
+			sess := session.New(repo, "feature", "local-runner", session.SessionOptions{ReviewMode: tc.mode, Operation: session.OperationReview})
+			a := New(tc.args(repo, base, head, sess))
+
+			comments, err := a.RunExternal(context.Background(), localrunner.NewWithExecutor(exec), "")
+			if err == nil || !strings.Contains(err.Error(), "outside changed ranges") {
+				t.Fatalf("RunExternal error = %v, want outside changed ranges", err)
+			}
+			if len(comments) != 0 {
+				t.Fatalf("comments = %+v, want none", comments)
+			}
+			if got := a.args.CommentCollector.Comments(); len(got) != 0 {
+				t.Fatalf("persisted comments = %+v, want none", got)
+			}
+		})
+	}
+}
+
 func TestRunExternalRejectsInvalidLineRange(t *testing.T) {
 	repo := initExternalRunnerRepo(t, map[string]string{
 		"a.go": "package main\n\nfunc a() string { return \"old\" }\n",
