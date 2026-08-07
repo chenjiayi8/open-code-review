@@ -21,7 +21,11 @@ func RenderPrompt(req Request) (string, error) {
 	var buf bytes.Buffer
 	fmt.Fprintf(&buf, "You are the local open-code-review runner for operation %q.\n", req.Operation)
 	fmt.Fprintf(&buf, "Repository root: %s\n\n", req.Repository)
-	buf.WriteString("Review exactly the manifest files listed below and only the changed hunks described for each file. Do not review, mention, or infer findings for files outside this manifest or outside the changed hunk context. Use repository reads only; do not use network access or external services.\n")
+	if requestHasDiffContext(req) {
+		buf.WriteString("Review exactly the manifest files listed below and only the changed hunks described for each file. Do not review, mention, or infer findings for files outside this manifest or outside the changed hunk context. Use repository reads only; do not use network access or external services.\n")
+	} else {
+		buf.WriteString("Review exactly the manifest files listed below. Do not review, mention, or infer findings for files outside this manifest. Use repository reads only; do not use network access or external services.\n")
+	}
 	buf.WriteString("Return only a single JSON object that conforms to the schema below. Do not write prose, Markdown fences, or explanations outside that JSON object.\n")
 	buf.WriteString("Report every file you completed in reviewed_files, even when findings is empty.\n\n")
 
@@ -83,6 +87,18 @@ func RenderPrompt(req Request) (string, error) {
 	buf.Write(Schema())
 	buf.WriteByte('\n')
 	return buf.String(), nil
+}
+
+func requestHasDiffContext(req Request) bool {
+	if !hasReviewContext(req.Review) {
+		return false
+	}
+	for _, file := range req.Files {
+		if len(file.ChangedRanges) > 0 || file.UnifiedDiff != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func hasReviewContext(ctx ReviewContext) bool {
