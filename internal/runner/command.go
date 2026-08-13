@@ -9,6 +9,9 @@ var blockedEnvNames = map[string]struct{}{
 	"OCR_LLM_MODEL":         {},
 	"OCR_LLM_USE_ANTHROPIC": {},
 	"OCR_USE_ANTHROPIC":     {},
+	// A nested Codex CLI must create an independent review session rather than
+	// inheriting the parent Codex conversation.
+	"CODEX_THREAD_ID": {},
 }
 
 func codexArgs(repo, schemaPath, resultPath, model string) []string {
@@ -19,6 +22,7 @@ func codexArgs(repo, schemaPath, resultPath, model string) []string {
 	return append(args,
 		"-C", repo,
 		"--sandbox", "read-only",
+		"--json",
 		"--output-schema", schemaPath,
 		"-o", resultPath,
 		"-",
@@ -54,5 +58,7 @@ func blockedEnv(name string) bool {
 	if _, ok := blockedEnvNames[name]; ok {
 		return true
 	}
-	return strings.HasPrefix(name, "OCR_LLM_") || strings.HasPrefix(name, "OCR_PROVIDER_")
+	return strings.HasPrefix(name, "OCR_LLM_") ||
+		strings.HasPrefix(name, "OCR_PROVIDER_") ||
+		strings.HasPrefix(name, "OMX_")
 }

@@ -116,7 +116,7 @@ func (r *Runner) Run(ctx context.Context, request Request) (Result, error) {
 
 	switch r.kind {
 	case Codex:
-		_, err := r.runCommand(runCtx, identity.Executable, codexArgs(request.Repository, schemaPath, resultPath, r.model), []byte(prompt), env, request.Repository)
+		events, err := r.runCommand(runCtx, identity.Executable, codexArgs(request.Repository, schemaPath, resultPath, r.model), []byte(prompt), env, request.Repository)
 		if err != nil {
 			return Result{}, err
 		}
@@ -124,7 +124,12 @@ func (r *Runner) Run(ctx context.Context, request Request) (Result, error) {
 		if err != nil {
 			return Result{}, fmt.Errorf("runner: read codex result: %w", err)
 		}
-		return ParseResult(data)
+		result, err := ParseResult(data)
+		if err != nil {
+			return Result{}, err
+		}
+		result.Usage = parseCodexUsage(events)
+		return result, nil
 	case Claude:
 		out, err := r.runCommand(runCtx, identity.Executable, claudeArgs(schemaPath, r.model), []byte(prompt), env, request.Repository)
 		if err != nil {
@@ -134,6 +139,33 @@ func (r *Runner) Run(ctx context.Context, request Request) (Result, error) {
 	default:
 		return Result{}, fmt.Errorf("runner: unsupported kind %q", r.kind)
 	}
+}
+
+func parseCodexUsage(events []byte) *Usage {
+	type event struct {
+		Type  string `json:"type"`
+		Usage *struct {
+			InputTokens       int64 `json:"input_tokens"`
+			OutputTokens      int64 `json:"output_tokens"`
+			CachedInputTokens int64 `json:"cached_input_tokens"`
+			CacheWriteTokens  int64 `json:"cache_write_input_tokens"`
+		} `json:"usage"`
+	}
+
+	var usage *Usage
+	for _, line := range bytes.Split(events, []byte{'\n'}) {
+		var item event
+		if err := json.Unmarshal(line, &item); err != nil || item.Type != "turn.completed" || item.Usage == nil {
+			continue
+		}
+		usage = &Usage{
+			InputTokens:      item.Usage.InputTokens,
+			OutputTokens:     item.Usage.OutputTokens,
+			CacheReadTokens:  item.Usage.CachedInputTokens,
+			CacheWriteTokens: item.Usage.CacheWriteTokens,
+		}
+	}
+	return usage
 }
 
 func (r *Runner) initDefaults() error {

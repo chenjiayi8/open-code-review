@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/alibaba/open-code-review/internal/diff"
+	"github.com/alibaba/open-code-review/internal/llm"
 	"github.com/alibaba/open-code-review/internal/model"
 	localrunner "github.com/alibaba/open-code-review/internal/runner"
 	"github.com/alibaba/open-code-review/internal/session"
@@ -81,6 +82,14 @@ func (a *Agent) RunExternal(ctx context.Context, r *localrunner.Runner, backgrou
 		}
 		finalErr := a.finalizeReviewSession()
 		return nil, errors.Join(fmt.Errorf("run external runner: %w", err), finalErr)
+	}
+	if result.Usage != nil {
+		a.runner.RecordUsage(&llm.UsageInfo{
+			PromptTokens:     result.Usage.InputTokens,
+			CompletionTokens: result.Usage.OutputTokens,
+			CacheReadTokens:  result.Usage.CacheReadTokens,
+			CacheWriteTokens: result.Usage.CacheWriteTokens,
+		})
 	}
 
 	comments, err := a.validateExternalResult(result, remaining)

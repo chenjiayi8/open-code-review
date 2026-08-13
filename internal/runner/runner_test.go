@@ -156,6 +156,36 @@ func TestRunDoesNotIssueAuthStatusCommand(t *testing.T) {
 	}
 }
 
+func TestCodexRunCapturesTerminalUsage(t *testing.T) {
+	repo := t.TempDir()
+	r := &Runner{
+		kind:     Codex,
+		lookPath: func(string) (string, error) { return "/usr/bin/codex", nil },
+		runCommand: func(_ context.Context, _ string, args []string, _ []byte, _ []string, _ string) ([]byte, error) {
+			for i := 0; i+1 < len(args); i++ {
+				if args[i] == "-o" {
+					if err := os.WriteFile(args[i+1], []byte(`{"reviewed_files":["src/a.go"],"findings":[],"summary":""}`), 0o600); err != nil {
+						t.Fatalf("write codex result: %v", err)
+					}
+				}
+			}
+			return []byte("{\"type\":\"turn.started\"}\n{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":100,\"cached_input_tokens\":60,\"cache_write_input_tokens\":4,\"output_tokens\":25}}\n"), nil
+		},
+		environ: func() []string { return nil },
+	}
+
+	result, err := r.Run(context.Background(), Request{Operation: Review, Repository: repo, Files: []File{{Path: "src/a.go", Rule: "review"}}})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Usage == nil {
+		t.Fatal("Usage is nil")
+	}
+	if got, want := *result.Usage, (Usage{InputTokens: 100, OutputTokens: 25, CacheReadTokens: 60, CacheWriteTokens: 4}); got != want {
+		t.Fatalf("Usage = %+v, want %+v", got, want)
+	}
+}
+
 func TestRunPropagatesNativeAuthFailureWithoutStatusCommand(t *testing.T) {
 	repo := t.TempDir()
 	calls := make([][]string, 0, 1)

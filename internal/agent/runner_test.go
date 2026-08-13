@@ -221,6 +221,33 @@ func TestRunExternalValidZeroFindingResponseCoversAllFiles(t *testing.T) {
 	}
 }
 
+func TestRunExternalRecordsRunnerUsage(t *testing.T) {
+	repo := initExternalRunnerRepo(t, map[string]string{"a.go": "package main\n\nfunc a() string { return \"old\" }\n"})
+	writeAgentFile(t, repo, "a.go", "package main\n\nfunc a() string { return \"new\" }\n")
+	exec := &scriptedRunnerExecutor{result: localrunner.Result{
+		ReviewedFiles: []string{"a.go"},
+		Findings:      []localrunner.Finding{},
+		Usage:         &localrunner.Usage{InputTokens: 100, OutputTokens: 25, CacheReadTokens: 60, CacheWriteTokens: 4},
+	}}
+	a := newExternalAgent(t, repo)
+
+	if _, err := a.RunExternal(context.Background(), localrunner.NewWithExecutor(exec), ""); err != nil {
+		t.Fatalf("RunExternal: %v", err)
+	}
+	if got, want := a.TotalInputTokens(), int64(100); got != want {
+		t.Fatalf("TotalInputTokens = %d, want %d", got, want)
+	}
+	if got, want := a.TotalOutputTokens(), int64(25); got != want {
+		t.Fatalf("TotalOutputTokens = %d, want %d", got, want)
+	}
+	if got, want := a.TotalCacheReadTokens(), int64(60); got != want {
+		t.Fatalf("TotalCacheReadTokens = %d, want %d", got, want)
+	}
+	if got, want := a.TotalCacheWriteTokens(), int64(4); got != want {
+		t.Fatalf("TotalCacheWriteTokens = %d, want %d", got, want)
+	}
+}
+
 func TestRunExternalReusesResumeAndRunsOneRemainingFile(t *testing.T) {
 	repo := initExternalRunnerRepo(t, map[string]string{
 		"a.go": "package main\n\nfunc a() string { return \"old\" }\n",
