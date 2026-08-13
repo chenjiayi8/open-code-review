@@ -14,19 +14,18 @@ var resultSchema = []byte(`{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "additionalProperties": false,
-  "required": ["reviewed_files", "findings"],
+  "required": ["reviewed_files", "findings", "summary"],
   "properties": {
     "reviewed_files": {
       "type": "array",
-      "items": { "type": "string", "minLength": 1 },
-      "uniqueItems": true
+      "items": { "type": "string", "minLength": 1 }
     },
     "findings": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["path", "start_line", "end_line", "content", "severity", "category"],
+        "required": ["path", "start_line", "end_line", "content", "severity", "category", "suggestion_code", "existing_code", "thinking"],
         "properties": {
           "path": { "type": "string", "minLength": 1 },
           "start_line": { "type": "integer", "minimum": 1 },
