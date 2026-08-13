@@ -113,3 +113,51 @@ func TestSchemaIsClosedAndEnumerated(t *testing.T) {
 		}
 	}
 }
+
+func TestSchemaIsCompatibleWithCodexStrictOutput(t *testing.T) {
+	var schema struct {
+		Required   []string                   `json:"required"`
+		Properties map[string]json.RawMessage `json:"properties"`
+	}
+	if err := json.Unmarshal(Schema(), &schema); err != nil {
+		t.Fatalf("Schema is invalid JSON: %v", err)
+	}
+	assertAllPropertiesRequired(t, "root", schema.Required, schema.Properties)
+
+	var reviewedFiles struct {
+		UniqueItems json.RawMessage `json:"uniqueItems"`
+	}
+	if err := json.Unmarshal(schema.Properties["reviewed_files"], &reviewedFiles); err != nil {
+		t.Fatalf("decode reviewed_files schema: %v", err)
+	}
+	if reviewedFiles.UniqueItems != nil {
+		t.Fatal("Codex output schemas do not support uniqueItems; ParseResult enforces duplicate-path rejection")
+	}
+
+	var findings struct {
+		Items struct {
+			Required   []string                   `json:"required"`
+			Properties map[string]json.RawMessage `json:"properties"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(schema.Properties["findings"], &findings); err != nil {
+		t.Fatalf("decode findings schema: %v", err)
+	}
+	assertAllPropertiesRequired(t, "findings item", findings.Items.Required, findings.Items.Properties)
+}
+
+func assertAllPropertiesRequired(t *testing.T, scope string, required []string, properties map[string]json.RawMessage) {
+	t.Helper()
+	requiredSet := make(map[string]struct{}, len(required))
+	for _, name := range required {
+		requiredSet[name] = struct{}{}
+	}
+	if len(requiredSet) != len(properties) {
+		t.Fatalf("%s schema has %d required properties, want %d: %v", scope, len(requiredSet), len(properties), required)
+	}
+	for name := range properties {
+		if _, ok := requiredSet[name]; !ok {
+			t.Errorf("%s schema property %q must be required for Codex strict output", scope, name)
+		}
+	}
+}
