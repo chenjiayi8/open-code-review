@@ -62,6 +62,15 @@ type Result struct {
 	ReviewedFiles []string  `json:"reviewed_files"`
 	Findings      []Finding `json:"findings"`
 	Summary       string    `json:"summary,omitempty"`
+	Usage         *Usage    `json:"-"`
+}
+
+// Usage is the token accounting reported by a local runner invocation.
+type Usage struct {
+	InputTokens      int64
+	OutputTokens     int64
+	CacheReadTokens  int64
+	CacheWriteTokens int64
 }
 
 // Finding is one local-runner code-review finding.

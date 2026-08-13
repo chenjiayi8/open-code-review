@@ -8,7 +8,7 @@ import (
 
 func TestCodexCommandIsReadOnlyAndUsesSchema(t *testing.T) {
 	args := codexArgs("/repo", "/tmp/schema.json", "prompt", "")
-	if !slices.Contains(args, "--sandbox") || !slices.Contains(args, "read-only") || !slices.Contains(args, "--output-schema") {
+	if !slices.Contains(args, "--sandbox") || !slices.Contains(args, "read-only") || !slices.Contains(args, "--json") || !slices.Contains(args, "--output-schema") {
 		t.Fatalf("unsafe codex args: %#v", args)
 	}
 }
@@ -24,6 +24,8 @@ func TestSafeChildEnvRemovesOnlyLegacyOCRLLMAndProviderVariables(t *testing.T) {
 		"OCR_LLM_URL=https://example.invalid",
 		"OCR_LLM_AUTH_TOKEN=ocr-token",
 		"OCR_PROVIDER_TOKEN=provider-token",
+		"CODEX_THREAD_ID=parent-thread",
+		"OMX_SESSION_ID=parent-session",
 		"OCR_MAX_RETRIES=3",
 	})
 	for _, want := range []string{
@@ -39,7 +41,7 @@ func TestSafeChildEnvRemovesOnlyLegacyOCRLLMAndProviderVariables(t *testing.T) {
 			t.Fatalf("safe env removed %q from %#v", want, env)
 		}
 	}
-	for _, blocked := range []string{"OCR_LLM_URL=https://example.invalid", "OCR_LLM_AUTH_TOKEN=ocr-token", "OCR_PROVIDER_TOKEN=provider-token"} {
+	for _, blocked := range []string{"OCR_LLM_URL=https://example.invalid", "OCR_LLM_AUTH_TOKEN=ocr-token", "OCR_PROVIDER_TOKEN=provider-token", "CODEX_THREAD_ID=parent-thread", "OMX_SESSION_ID=parent-session"} {
 		if slices.Contains(env, blocked) {
 			t.Fatalf("safe env kept legacy OCR entry %q in %#v", blocked, env)
 		}
@@ -55,6 +57,8 @@ func TestSafeChildEnvPreservesNativeCLIAuthentication(t *testing.T) {
 		"ANTHROPIC_BASE_URL=https://anthropic.example",
 		"OCR_LLM_TOKEN=legacy",
 		"OCR_PROVIDER_TOKEN=legacy-provider",
+		"CODEX_THREAD_ID=parent-thread",
+		"OMX_CODEX_LAUNCH_ID=parent-launch",
 	})
 	for _, want := range []string{
 		"OPENAI_API_KEY=token",
@@ -67,7 +71,7 @@ func TestSafeChildEnvPreservesNativeCLIAuthentication(t *testing.T) {
 			t.Fatalf("safe env removed native auth entry %q from %#v", want, env)
 		}
 	}
-	for _, blocked := range []string{"OCR_LLM_TOKEN=legacy", "OCR_PROVIDER_TOKEN=legacy-provider"} {
+	for _, blocked := range []string{"OCR_LLM_TOKEN=legacy", "OCR_PROVIDER_TOKEN=legacy-provider", "CODEX_THREAD_ID=parent-thread", "OMX_CODEX_LAUNCH_ID=parent-launch"} {
 		if slices.Contains(env, blocked) {
 			t.Fatalf("safe env kept legacy OCR entry %q in %#v", blocked, env)
 		}
